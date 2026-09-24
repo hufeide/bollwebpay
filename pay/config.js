@@ -22,7 +22,12 @@ export const config = {
   pricePerUse: Number(process.env.PRICE_PER_USE) || 10, // 道具单价(分), 需与后台道具价格一致
 
   // ---- 主服务 bollweb(由 server.js 提供 /api/provision) ----
-  mainBaseUrl: (process.env.MAIN_BASE_URL || '').replace(/\/+$/, ''),
+  // 内部通信地址: pay 与主服务同机时, 直接走 localhost(最快最稳, 避免「我的记录」被公网隧道抖动拖慢)。
+  // 跨机部署请用 MAIN_BASE_URL 指向主服务内网/公网地址。
+  mainBaseUrl: (process.env.MAIN_BASE_URL || 'http://localhost:8080').replace(/\/+$/, ''),
+  // 主服务「对外公网地址」: 仅用于告诉主服务生成公网可达的房间链接(房间 url / 小程序访问),
+  // 与上面的内部通信地址分离, 以免房间 url 变成 localhost 而外部打不开。
+  mainPublicBaseUrl: (process.env.MAIN_PUBLIC_BASE_URL || process.env.MAIN_BASE_URL || '').replace(/\/+$/, ''),
   mainProvisionToken: process.env.MAIN_PROVISION_TOKEN || '',
 
   // ---- 回调 ----

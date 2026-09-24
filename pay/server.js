@@ -75,22 +75,30 @@ function ensureAccount(openid) {
   return a;
 }
 
-// 实时统计账户已用次数: 累加该用户所有房间的真实消息/传输数(主服务按条计数)
+// 带超时(3s)地向主服务查询单个房间的已用次数; 失败/超时按 0 计, 不拖死整个接口
+async function fetchRoomUsed(room) {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 3000);
+  try {
+    const r = await fetch(`${config.mainBaseUrl}/api/room/${room}`, { signal: ctrl.signal });
+    const d = await r.json();
+    if (d && !d.error && typeof d.used === 'number') return d.used;
+    return 0;
+  } catch { return 0; }
+  finally { clearTimeout(timer); }
+}
+// 实时统计账户已用次数: 并行累加该用户所有房间的真实消息/传输数(主服务按条计数)
 async function computeUsed(openid) {
   const acc = accounts.get(openid);
   if (!acc || !acc.addresses.length) return { used: 0, freeUsed: 0 };
+  const usedArr = await Promise.all(acc.addresses.map((ad) => fetchRoomUsed(ad.room)));
   let used = 0, freeUsed = 0;
-  for (const ad of acc.addresses) {
-    let u = 0;
-    try {
-      const r = await fetch(`${config.mainBaseUrl}/api/room/${ad.room}`);
-      const d = await r.json();
-      if (d && typeof d.used === 'number') u = d.used;
-    } catch {}
+  acc.addresses.forEach((ad, i) => {
+    const u = usedArr[i] || 0;
     used += u;
     // 仅「免费地址」(未付费, priceFen 为空或 0) 的消耗计入免费额度; 付费地址的消耗不算免费
     if (!(ad.priceFen > 0)) freeUsed += u;
-  }
+  });
   return { used, freeUsed };
 }
 // 账户剩余次数 = 免费 + 已购 - 已用(每条消息/传输 = 1 次)
@@ -115,7 +123,7 @@ async function provisionRoom(count, maxFileBytes = 0) {
     headers: {
       'Content-Type': 'application/json',
       Authorization: `Bearer ${config.mainProvisionToken}`,
-      'x-public-base-url': config.mainBaseUrl,
+      'x-public-base-url': config.mainPublicBaseUrl || config.mainBaseUrl,
     },
     body: JSON.stringify({ count, maxFileBytes, note: 'paid' }),
   });
@@ -310,25 +318,26 @@ app.get('/api/user/:openid', async (req, res) => {
   const freeRemaining = Math.max(0, acc.freeUses - (info.freeUsed || 0));
   // 逐个地址向主服务查询真实额度(额度=套餐内次数, 已用=每条消息/传输消耗, 剩余=套餐内还剩多少条)
   const latestRoom = acc.addresses.length ? acc.addresses[acc.addresses.length - 1].room : '';
-  const addresses = [];
-  for (const ad of acc.addresses) {
-    let st = { used: 0, limit: ad.limit || 0, remaining: ad.limit || 0, disabled: false };
+  // 并行查询所有房间状态(带超时容错), 避免「我的记录」因逐个串行 fetch 而缓慢
+  const roomStats = await Promise.all(acc.addresses.map(async (ad) => {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 3000);
     try {
-      const r = await fetch(`${config.mainBaseUrl}/api/room/${ad.room}`);
+      const r = await fetch(`${config.mainBaseUrl}/api/room/${ad.room}`, { signal: ctrl.signal });
       const d = await r.json();
-      if (d && !d.error) {
-        st = { used: d.used || 0, limit: d.limit || 0, remaining: d.remaining || 0, disabled: !!d.disabled };
-      }
+      if (d && !d.error) return { used: d.used || 0, limit: d.limit || 0, remaining: d.remaining || 0, disabled: !!d.disabled };
     } catch {}
-    addresses.push({
-      ...ad,
-      roomUsed: st.used,
-      roomLimit: st.limit,
-      roomRemaining: st.remaining,
-      // 有效性: 仅「最新生成的地址」有效; 旧地址一经生成新链接即被取代, 视为失效
-      valid: ad.room === latestRoom,
-    });
-  }
+    finally { clearTimeout(timer); }
+    return { used: 0, limit: ad.limit || 0, remaining: ad.limit || 0, disabled: false };
+  }));
+  const addresses = acc.addresses.map((ad, i) => ({
+    ...ad,
+    roomUsed: roomStats[i].used,
+    roomLimit: roomStats[i].limit,
+    roomRemaining: roomStats[i].remaining,
+    // 有效性: 仅「最新生成的地址」有效; 旧地址一经生成新链接即被取代, 视为失效
+    valid: ad.room === latestRoom,
+  }));
   res.json({
     freeUses: acc.freeUses,
     freeRemaining,

@@ -90,8 +90,11 @@ if [ "$TUNNEL" = "1" ]; then
   fi
 fi
 
-# pay 使用的主服务公网地址: 隧道地址(动态)优先, 否则 MAIN_BASE_URL, 否则 BASE_URL
-MAIN_BASE_URL="${PUBLIC_URL:-${MAIN_BASE_URL:-$BASE_URL}}"
+# pay 服务「内部」访问主服务: 同机优先 localhost(最快最稳, 根治「我的记录」因公网隧道抖动而卡顿)
+# 跨机部署可用 PAY_MAIN_URL 显式指定主服务内网/公网地址
+MAIN_BASE_URL="${PAY_MAIN_URL:-http://localhost:$MAIN_PORT}"
+# 主服务公网地址: 仅用于生成房间链接(对外可达); 隧道地址优先, 否则回退到主服务 BASE_URL
+MAIN_PUBLIC_BASE_URL="${PUBLIC_URL:-$BASE_URL}"
 
 # ---- 可选: 给 pay 服务也开一条隧道(供微信发货推送回调; 默认随 TUNNEL) ----
 # 注意: 临时隧道每次重启都变, 仅适合联调; 生产请在 .env 用固定域名填 PAY_NOTIFY_BASE_URL。
@@ -126,7 +129,7 @@ fi
 
 echo "[start] 支付服务 PAY_PORT=$PAY_PORT  MAIN_BASE_URL=$MAIN_BASE_URL  PAY_NOTIFY_BASE_URL=${PAY_NOTIFY_BASE_URL:-'(未设置)'}"
 cd "$PAY_DIR"
-MAIN_BASE_URL="$MAIN_BASE_URL" MAIN_PROVISION_TOKEN="$PROVISION_TOKEN" PAY_PORT="$PAY_PORT" PAY_NOTIFY_BASE_URL="$PAY_NOTIFY_BASE_URL" node server.js &
+MAIN_BASE_URL="$MAIN_BASE_URL" MAIN_PUBLIC_BASE_URL="$MAIN_PUBLIC_BASE_URL" MAIN_PROVISION_TOKEN="$PROVISION_TOKEN" PAY_PORT="$PAY_PORT" PAY_NOTIFY_BASE_URL="$PAY_NOTIFY_BASE_URL" node server.js &
 PAY_PID=$!
 
 cleanup() {
