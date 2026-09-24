@@ -77,17 +77,22 @@ const RTC = (() => {
   }
   function flushCandidates(p) { for (const c of p.pending) p.pc.addIceCandidate(c).catch(() => {}); p.pending = []; }
 
-  // 发送: 优先 DataChannel, 成功返回 true; 否则返回 false(调用方回退 relay)
+  // 发送: 优先 DataChannel, 成功返回 true; 失败(未开/缓冲溢出抛异常)返回 false(调用方回退 relay)
   function send(peerId, msg) {
     const p = peers.get(peerId);
-    if (p && p.dc && p.dc.readyState === 'open') { p.dc.send(JSON.stringify(msg)); return true; }
+    if (p && p.dc && p.dc.readyState === 'open') {
+      try { p.dc.send(JSON.stringify(msg)); return true; }
+      catch (e) { return false; }   // DataChannel 缓冲满/发送失败 -> 回退 relay, 避免块丢失卡死
+    }
     return false;
   }
   // 广播给所有同伴; 每个同伴独立选择 P2P 或 relay
   function broadcast(msg) {
     for (const [id, p] of peers) {
-      if (p.dc && p.dc.readyState === 'open') p.dc.send(JSON.stringify(msg));
-      else Signaling.send({ type: 'relay', to: id, data: msg });
+      if (p.dc && p.dc.readyState === 'open') {
+        try { p.dc.send(JSON.stringify(msg)); continue; } catch (e) { /* 回退 relay */ }
+      }
+      Signaling.send({ type: 'relay', to: id, data: msg });
     }
   }
   function list() { return [...peers.keys()]; }

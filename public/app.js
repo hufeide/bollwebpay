@@ -94,7 +94,12 @@ function enter() {
   // 链接失效(额度用尽/房间不存在): 退回登录页并提示
   Signaling.on('error', (m) => {
     // 文件超限为软错误, 仅提示, 不踢出房间(发送端已提前拦截, 这里是兜底)
-    if (m && m.code === 'FILE_TOO_LARGE') { addSystem('⚠️ ' + (m.message || '文件超出大小限制')); return; }
+    if (m && m.code === 'FILE_TOO_LARGE') {
+      const tip = '⚠️ ' + (m.message || '文件超出大小限制');
+      addSystem(tip);
+      alert(tip);
+      return;
+    }
     $('app').classList.add('hidden');
     $('login').classList.remove('hidden');
     $('loginErr').textContent = (m && m.message) || '无法进入该房间';

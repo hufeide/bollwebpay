@@ -139,6 +139,14 @@ const FT = (() => {
       };
       incoming.set(from + ':' + msg.id, inc);
       makeTransfer(inc, msg.name, '接收');
+      // 超过本房间单文件上限: 提醒接收方(块已通过中继送达, 仍可拼装, 但提示超限以免困惑)
+      if (window.roomMaxBytes && msg.size > window.roomMaxBytes) {
+        const MB = 1024 * 1024, GB = 1024 * 1024 * 1024;
+        const txt = window.roomMaxBytes >= GB ? (window.roomMaxBytes / GB) + 'G'
+          : window.roomMaxBytes >= MB ? Math.round(window.roomMaxBytes / MB) + 'M'
+          : Math.round(window.roomMaxBytes / 1024) + 'K';
+        addSystem(`⚠️ 对方发送的文件「${msg.name}」(${(msg.size / 1024 / 1024).toFixed(1)}MB) 超过本房间单文件上限 ${txt}，可能无法计入记录，请让对方压缩或分包后重传。`);
+      }
     } else if (msg.k === 'file-chunk') {
       const f = incoming.get(from + ':' + msg.id);
       if (!f) return;
