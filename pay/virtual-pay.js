@@ -62,13 +62,38 @@ export function buildXml(obj) {
 }
 
 // 兜底查单: 服务端主动调微信 query_order; uri 固定 /xpay/query_order
-export async function queryOrder(openid, orderId, appKey) {
+// 注意: 该接口 URL 必须带 access_token 与 pay_sig(query 参数), 见官方文档
+export async function queryOrder(openid, orderId, appKey, accessToken) {
   const body = JSON.stringify({ openid, env: 0, order_id: orderId });
   const paySig = hmacSha256(appKey, '/xpay/query_order&' + body);
-  const resp = await fetch(`${API}/xpay/query_order`, {
+  const resp = await fetch(`${API}/xpay/query_order?access_token=${accessToken}&pay_sig=${paySig}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ openid, env: 0, order_id: orderId, pay_sig: paySig }),
+    body,
   });
   return resp.json();
+}
+
+// 通知微信「发货完成」: 正常情况发货推送返回成功即可; 推送丢失、由兜底查单补发后,
+// 需调用此接口手动把订单标记为已发货, 否则订单一直停留在「已支付待发货」。
+export async function notifyProvideGoods(orderId, appKey, accessToken) {
+  const body = JSON.stringify({ order_id: orderId, env: 0 });
+  const paySig = hmacSha256(appKey, '/xpay/notify_provide_goods&' + body);
+  const resp = await fetch(`${API}/xpay/notify_provide_goods?access_token=${accessToken}&pay_sig=${paySig}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body,
+  });
+  return resp.json();
+}
+
+// access_token 获取与缓存(有效期内复用, 提前 5 分钟刷新)
+let _tokenCache = { token: '', expiresAt: 0 };
+export async function getAccessToken(appid, appSecret) {
+  if (_tokenCache.token && Date.now() < _tokenCache.expiresAt) return _tokenCache.token;
+  const url = `${API}/cgi-bin/token?grant_type=client_credential&appid=${appid}&secret=${appSecret}`;
+  const r = await (await fetch(url)).json();
+  if (!r.access_token) throw new Error('获取 access_token 失败: ' + JSON.stringify(r));
+  _tokenCache = { token: r.access_token, expiresAt: Date.now() + ((r.expires_in || 7200) - 300) * 1000 };
+  return r.access_token;
 }

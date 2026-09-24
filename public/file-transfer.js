@@ -36,6 +36,14 @@ const FT = (() => {
   function sendFile(file) {
     const peers = RTC.list();
     if (!peers.length) { alert('房间里还没有其他同伴，无法发送文件'); return; }
+    // 单文件大小上限(按套餐): 发送前拦截, 避免无效传输与扣次数
+    const max = window.roomMaxBytes || 0;
+    if (max && file.size > max) {
+      const MB = 1024 * 1024, GB = 1024 * 1024 * 1024;
+      const txt = max >= GB ? (max / GB) + 'G' : max >= MB ? Math.round(max / MB) + 'M' : Math.round(max / 1024) + 'K';
+      alert(`单个文件不能超过 ${txt}（当前套餐上限），请压缩或分包后再传。`);
+      return;
+    }
     const id = 'f' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
     const total = Math.ceil(file.size / CHUNK);
     // 历史: 加密时只存密文 pf(服务器无法读取文件名/大小), 否则存明文

@@ -1,13 +1,25 @@
 <view class="page">
-  <view class="title">bollweb 使用次数</view>
-  <view class="sub">按使用次数付费: 每 1 条对话或 1 次文件传输计 1 次。付费后获得一个带次数上限的新链接, 用尽即失效。</view>
+  <view class="title">购买使用次数</view>
 
-  <view class="card">
-    <view class="label">购买次数</view>
-    <input class="input" type="number" value="{{count}}" bindinput="onCountInput" placeholder="请输入次数" />
-    <view class="price">应付: ¥{{price}}</view>
+  <view class="intro">
+    <view class="intro-row"><text>计费方式</text><text class="v">每 1 条消息 / 1 次传输 = 1 次</text></view>
+    <view class="intro-row"><text>新用户赠送</text><text class="v hl">免费 {{freeUses}} 次体验</text></view>
+    <view class="intro-row"><text>使用方式</text><text class="v">购买后获分享链接, 发给对方即可互传文件/图片/视频/音频</text></view>
+    <view class="intro-tip">次数用尽链接自动失效；未用完可在「我的记录」用剩余次数重新申请新地址。不同套餐对应不同的单文件大小上限。</view>
   </view>
 
-  <button class="buy" bindtap="pay">微信支付 ¥{{price}}</button>
+  <view class="pkg-title">选择套餐</view>
+  <view class="pkg {{item.id===selectedId?'pkg-on':''}}" wx:for="{{packages}}" wx:key="id" data-id="{{item.id}}" bindtap="selectPackage">
+    <view class="pkg-main">
+      <view class="pkg-name">{{item.label}}</view>
+      <view class="pkg-count">{{item.count}} 条</view>
+    </view>
+    <view class="pkg-side">
+      <view class="pkg-price">¥{{item.priceYuan}}</view>
+      <view class="pkg-limit">单文件 ≤ {{item.maxFileText}}</view>
+    </view>
+  </view>
+
+  <button class="buy" bindtap="pay">微信支付 ¥{{selPrice}}</button>
   <view class="hint">支付成功后自动跳转, 在结果页复制分享链接发给对方即可。</view>
 </view>

@@ -3,6 +3,7 @@ const $ = (id) => document.getElementById(id);
 let myName = '';
 let myId = '';
 let room = '';
+var roomMaxBytes = 0;   // 当前房间的单文件大小上限(由后端按套餐下发, 0 = 不限; 挂到 window 供 file-transfer.js 读取)
 const roomPeers = new Map();        // peerId -> name
 const peerState = new Map();        // peerId -> connected(bool)
 const fileStore = new Map();        // cardId -> { id, name, blob, url, checked, cb }
@@ -61,6 +62,18 @@ function enter() {
         else addMsg(e.name, e.text, e.name === myName);
       }
     }
+    // 拉取房间的单文件大小上限(按套餐), 用于发送前拦截超限文件
+    fetch(`/api/room/${encodeURIComponent(room)}`).then((r) => r.json()).then((d) => {
+      if (d && d.maxFileBytes) {
+        roomMaxBytes = d.maxFileBytes;
+        const MB = 1024 * 1024, GB = 1024 * 1024 * 1024;
+        const txt = roomMaxBytes >= GB ? (roomMaxBytes / GB) + 'G'
+          : roomMaxBytes >= MB ? Math.round(roomMaxBytes / MB) + 'M'
+          : Math.round(roomMaxBytes / 1024) + 'K';
+        const st = $('status');
+        if (st) st.textContent += ` · 单文件上限 ${txt}`;
+      }
+    }).catch(() => {});
   });
   Signaling.on('peer-join', (m) => {
     roomPeers.set(m.peerId, m.name);
@@ -78,8 +91,10 @@ function enter() {
   Signaling.on('signal', (m) => RTC.handleSignal(m.from, m.data));
   Signaling.on('relay', (m) => onApp(m.from, m.data));
   Signaling.on('close', () => { $('status').textContent = '与信令服务器断开，请刷新页面重连'; });
-  // 链接失效(额度用尽): 退回登录页并提示
+  // 链接失效(额度用尽/房间不存在): 退回登录页并提示
   Signaling.on('error', (m) => {
+    // 文件超限为软错误, 仅提示, 不踢出房间(发送端已提前拦截, 这里是兜底)
+    if (m && m.code === 'FILE_TOO_LARGE') { addSystem('⚠️ ' + (m.message || '文件超出大小限制')); return; }
     $('app').classList.add('hidden');
     $('login').classList.remove('hidden');
     $('loginErr').textContent = (m && m.message) || '无法进入该房间';
@@ -187,6 +202,12 @@ function showQR(room, key, name) {
   }
 }
 $('createRoom').onclick = createRoom;
+// 付费模式: 房间只能通过小程序付费分发, 隐藏本地创建入口并提示
+if (window.PAID_ONLY) {
+  const cr = $('createRoom'); if (cr) cr.style.display = 'none';
+  const hint = document.querySelector('#login .hintline');
+  if (hint) hint.textContent = '本服务需通过付费链接进入：请在小程序购买使用次数，获取链接后发给对方即可。';
+}
 $('qrClose').onclick = () => $('qrModal').classList.add('hidden');
 $('qrCopy').onclick = () => {
   const url = $('qrUrl').textContent;

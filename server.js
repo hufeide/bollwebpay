@@ -30,12 +30,16 @@ const ICE = JSON.parse(
   '[{"urls":"stun:stun.l.google.com:19302"},{"urls":"stun:stun1.l.google.com:19302"}]'
 );
 
+// 付费模式: 仅允许通过 /api/provision 付费分发的房间, 直接打开首页输入房间码将被拒绝。
+const REQUIRE_PAID_ROOM = process.env.REQUIRE_PAID_ROOM === '1' || process.env.REQUIRE_PAID_ROOM === 'true';
+
 // 分享链接的基础地址(可选)。部署在 Cloudflare 隧道/反代后, 设此变量可让二维码
 // 输出公网域名而非 localhost(否则手机扫到的还是 localhost 打不开)。
 const BASE_URL = process.env.BASE_URL || '';
-const BASE_URL_SCRIPT = BASE_URL
-  ? `<script>window.BASE_URL=${JSON.stringify(BASE_URL)};</script>`
-  : '';
+const BASE_URL_SCRIPT = (
+  (BASE_URL ? `<script>window.BASE_URL=${JSON.stringify(BASE_URL)};</script>` : '') +
+  (REQUIRE_PAID_ROOM ? `<script>window.PAID_ONLY=1;</script>` : '')
+);
 
 // ---- 房间与历史(都在内存, 重启即清空; 历史额外落盘) ----
 // rooms: roomId -> Map(peerId -> { ws, name })
@@ -90,6 +94,13 @@ function genRoomCode() {
 }
 function genKeyB64() {
   return crypto.randomBytes(32).toString('base64'); // 32 字节 -> 256-bit 端到端密钥
+}
+function fmtSize(bytes) {
+  const MB = 1024 * 1024, GB = 1024 * 1024 * 1024;
+  if (bytes >= GB) return (bytes / GB) + 'G';
+  if (bytes >= MB) return Math.round(bytes / MB) + 'M';
+  if (bytes >= 1024) return Math.round(bytes / 1024) + 'K';
+  return bytes + 'B';
 }
 
 // 增加房间使用计数(每次对话/传输 = 1 次); 达到上限则标记失效并通知在线同伴
@@ -170,6 +181,7 @@ async function handleApi(req, res, urlPath) {
     return sendJson(res, 200, {
       room, limit: lim.limit, used: lim.used,
       remaining: Math.max(0, lim.limit - lim.used),
+      maxFileBytes: lim.maxFileBytes || 0,
       disabled: !!lim.disabled, createdAt: lim.createdAt,
     });
   }
@@ -184,10 +196,11 @@ async function handleApi(req, res, urlPath) {
     }
     const body = await readBody(req);
     const count = Math.max(1, Math.min(100000, parseInt(body.count, 10) || 1));
+    const maxFileBytes = Number(body.maxFileBytes) || 0; // 单文件大小上限(按套餐), 0 = 不限
     let room = String(body.room || '').toUpperCase();
     while (!room || roomLimits.has(room) || rooms.has(room)) room = genRoomCode();
     const key = genKeyB64(); // 密钥只随链接下发, 服务器不存储
-    roomLimits.set(room, { limit: count, used: 0, disabled: false, createdAt: Date.now(), note: body.note || 'paid' });
+    roomLimits.set(room, { limit: count, used: 0, disabled: false, createdAt: Date.now(), note: body.note || 'paid', maxFileBytes });
     saveLimits();
     // 链接基础地址: 优先用调用方显式传入的公网地址(如 pay 服务填的 MAIN_BASE_URL),
     // 否则从本次请求的 Host / 协议推导(cloudflared 等隧道会把真实公网域名放在 Host 头),
@@ -203,7 +216,7 @@ async function handleApi(req, res, urlPath) {
       })();
     const base = pubBase.replace(/\/+$/, '');
     const url = `${base}/#r=${encodeURIComponent(room)}&k=${encodeURIComponent(key)}&n=${encodeURIComponent('我')}`;
-    return sendJson(res, 200, { room, key, url, limit: count, base });
+    return sendJson(res, 200, { room, key, url, limit: count, maxFileBytes, base });
   }
 
   sendJson(res, 404, { error: 'not found' });
@@ -221,6 +234,11 @@ wss.on('connection', (ws) => {
       case 'join': {
         const room = String(m.room || 'default');
         const lim = roomLimits.get(room);
+        // 付费模式: 未付费分发(无额度记录)的房间一律拒绝, 防止直接打开网址白嫖
+        if (REQUIRE_PAID_ROOM && !lim) {
+          send(ws, { type: 'error', code: 'ROOM_NOT_FOUND', message: '房间不存在或未开通。请通过对方分享的付费链接进入。' });
+          return;
+        }
         if (lim && lim.disabled) {
           // 达到使用上限: 该房间(链接)已失效, 拒绝进入
           send(ws, { type: 'error', code: 'ROOM_DISABLED', message: '该链接使用次数已用尽，已失效，请重新获取新的链接。' });
@@ -257,6 +275,12 @@ wss.on('connection', (ws) => {
         break;
       }
       case 'store-file': {
+        // 单文件大小上限(按套餐): 超出则拒绝本次传输, 不计次数、不记入历史
+        const lim = roomLimits.get(ws.room);
+        if (lim && lim.maxFileBytes && m.size && m.size > lim.maxFileBytes) {
+          send(ws, { type: 'error', code: 'FILE_TOO_LARGE', message: `单个文件不能超过 ${fmtSize(lim.maxFileBytes)}（当前套餐上限），请压缩或分包后再传。` });
+          return;
+        }
         if (m.pf) pushHistory(ws.room, { type: 'file', pf: String(m.pf), ts: m.ts || Date.now() });
         else pushHistory(ws.room, { type: 'file', name: m.name, fname: m.fname, size: m.size || 0, ts: m.ts || Date.now() });
         incrementUsage(ws.room, 1); // 一次传输 = 一次使用

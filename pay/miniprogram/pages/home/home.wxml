@@ -1,0 +1,23 @@
+<view class="page">
+  <view class="logo">📦</view>
+  <view class="title">bollweb 传输助手</view>
+  <view class="sub">通过分享链接，安全互传文件、图片、视频、音频。端到端加密，服务器无法读取内容。</view>
+
+  <!-- 传输界面预览(体验样式) -->
+  <view class="preview">
+    <view class="prev-bar"><text>传输助手</text><text class="prev-me">我</text></view>
+    <view class="prev-body">
+      <view class="bubble them">发来的设计稿.png</view>
+      <view class="bubble me">收到，这是录屏.mp4</view>
+      <view class="bubble them">📄 合同.pdf · 2.3MB</view>
+      <view class="bubble me">🎵 语音.mp3</view>
+    </view>
+    <view class="prev-input">输入消息，回车发送 📎</view>
+  </view>
+
+  <button class="primary" bindtap="experience">免费体验（赠 {{freeUses}} 次）</button>
+  <button class="secondary" bindtap="onBuy">购买次数</button>
+  <button class="link" bindtap="onRecords">我的记录 / 剩余次数</button>
+
+  <view class="hint">体验与正式使用一致：把生成的链接发给对方，打开即进入同一加密房间，可互传文件/图片/视频/音频。</view>
+</view>

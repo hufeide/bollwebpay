@@ -1,7 +1,9 @@
 {
   "pages": [
+    "pages/home/home",
     "pages/index/index",
-    "pages/result/result"
+    "pages/result/result",
+    "pages/records/records"
   ],
   "window": {
     "navigationBarTitleText": "bollweb 次数购买",

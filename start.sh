@@ -65,7 +65,8 @@ CFD_PID=""
 PUBLIC_URL=""
 
 echo "[start] 主服务  PORT=$MAIN_PORT  BASE_URL=$BASE_URL"
-PROVISION_TOKEN="$PROVISION_TOKEN" BASE_URL="$BASE_URL" PORT="$MAIN_PORT" node "$ROOT/server.js" &
+# 付费模式(默认开): 仅付费分发的房间可进入; 联调想放开时用 REQUIRE_PAID_ROOM=0 ./start.sh
+PROVISION_TOKEN="$PROVISION_TOKEN" BASE_URL="$BASE_URL" PORT="$MAIN_PORT" REQUIRE_PAID_ROOM="${REQUIRE_PAID_ROOM:-1}" node "$ROOT/server.js" &
 MAIN_PID=$!
 
 if [ "$TUNNEL" = "1" ]; then
@@ -75,7 +76,7 @@ if [ "$TUNNEL" = "1" ]; then
     cloudflared tunnel --url "http://localhost:$MAIN_PORT" --logfile "$ROOT/.cfd.log" >/tmp/cfd.out 2>&1 &
     CFD_PID=$!
     for _i in $(seq 1 30); do
-      PUBLIC_URL="$(grep -oE 'https://[a-zA-Z0-9.-]+\.trycloudflare\.com' "$ROOT/.cfd.log" /tmp/cfd.out 2>/dev/null | head -1)"
+      PUBLIC_URL="$(grep -hoE 'https://[a-zA-Z0-9.-]+\.trycloudflare\.com' "$ROOT/.cfd.log" /tmp/cfd.out 2>/dev/null | head -1)"
       [ -n "$PUBLIC_URL" ] && break
       sleep 1
     done
@@ -103,7 +104,7 @@ if [ "$PAY_TUNNEL" = "1" ] && command -v cloudflared >/dev/null 2>&1; then
   cloudflared tunnel --url "http://localhost:$PAY_PORT" --logfile "$ROOT/.cfd_pay.log" >/tmp/cfd_pay.out 2>&1 &
   CFD_PAY_PID=$!
   for _i in $(seq 1 30); do
-    PAY_PUBLIC_URL="$(grep -oE 'https://[a-zA-Z0-9.-]+\.trycloudflare\.com' "$ROOT/.cfd_pay.log" /tmp/cfd_pay.out 2>/dev/null | head -1)"
+    PAY_PUBLIC_URL="$(grep -hoE 'https://[a-zA-Z0-9.-]+\.trycloudflare\.com' "$ROOT/.cfd_pay.log" /tmp/cfd_pay.out 2>/dev/null | head -1)"
     [ -n "$PAY_PUBLIC_URL" ] && break
     sleep 1
   done
@@ -112,6 +113,16 @@ if [ "$PAY_TUNNEL" = "1" ] && command -v cloudflared >/dev/null 2>&1; then
 fi
 # 微信发货推送回调地址: 命令行/隧道优先, 否则沿用 .env 里的 PAY_NOTIFY_BASE_URL
 PAY_NOTIFY_BASE_URL="${PAY_NOTIFY_BASE_URL:-$PAY_PUBLIC_URL}"
+
+# ---- 自动同步小程序 apiBase(pay/miniprogram/config.js) ----
+# 临时隧道地址每次都变, 这里把 pay 服务当前对外地址写进小程序配置, 免去手动修改。
+# 有隧道用隧道地址; 无隧道(本地调试)写 http://localhost:$PAY_PORT(WSL2 端口转发, 开发者工具可用)。
+MP_CONFIG="$PAY_DIR/miniprogram/config.js"
+if [ -f "$MP_CONFIG" ]; then
+  MP_API_BASE="${PAY_PUBLIC_URL:-http://localhost:$PAY_PORT}"
+  sed -i "s|apiBase:[[:space:]]*['\"][^'\"]*['\"]|apiBase: '$MP_API_BASE'|" "$MP_CONFIG"
+  echo "[start] 小程序 apiBase 已更新 -> $MP_API_BASE"
+fi
 
 echo "[start] 支付服务 PAY_PORT=$PAY_PORT  MAIN_BASE_URL=$MAIN_BASE_URL  PAY_NOTIFY_BASE_URL=${PAY_NOTIFY_BASE_URL:-'(未设置)'}"
 cd "$PAY_DIR"

@@ -185,4 +185,4 @@ ad3f8c701185bba1efe5bed103a76d047a94275fbea59ccbfa842c498db02f03
 
 
 ./start.sh            # 自动开主服务隧道, 动态注入 MAIN_BASE_URL
-PAY_TUNNEL=1 ./start.sh   # 同时给 pay 开隧道(联调微信回调用)
+MOCK_PAY=1 ./start.sh # 不走微信支付，直接返回 MOCK 链接

@@ -1,0 +1,20 @@
+.page { padding: 32rpx 28rpx; }
+.stat { display: flex; gap: 16rpx; margin-bottom: 28rpx; }
+.item { flex: 1; background: #fff; border-radius: 16rpx; padding: 24rpx 0; text-align: center; box-shadow: 0 4rpx 16rpx rgba(0,0,0,.05); }
+.num { font-size: 40rpx; font-weight: 700; color: #111827; }
+.num.hl { color: #07c160; }
+.cap { font-size: 20rpx; color: #9ca3af; margin-top: 6rpx; }
+.primary { background: #07c160; color: #fff; border-radius: 16rpx; font-size: 30rpx; margin-bottom: 32rpx; }
+.title { font-size: 28rpx; font-weight: 600; color: #374151; margin: 8rpx 0 16rpx; }
+.empty { color: #9ca3af; font-size: 26rpx; text-align: center; padding: 40rpx 0; }
+.addr { background: #fff; border-radius: 16rpx; padding: 24rpx; margin-bottom: 18rpx; box-shadow: 0 4rpx 16rpx rgba(0,0,0,.05); }
+.addr-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10rpx; }
+.pkg { font-size: 28rpx; font-weight: 700; color: #111827; }
+.badge { font-size: 22rpx; padding: 4rpx 14rpx; border-radius: 20rpx; }
+.badge.ok { background: #e7f9ee; color: #07c160; }
+.badge.bad { background: #fde8e8; color: #ef4444; }
+.url { font-size: 22rpx; color: #374151; word-break: break-all; }
+.meta { font-size: 20rpx; color: #9ca3af; margin: 8rpx 0; }
+.btn-row { display: flex; gap: 16rpx; margin-top: 10rpx; }
+.copy { background: #eff6ff; color: #2563eb; }
+.reapply { background: #fff7e6; color: #d97706; }
