@@ -1,0 +1,11 @@
+services:
+  bollweb:
+    build: .
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    # 如需自定义 STUN/TURN, 取消下一行注释并填写:
+    # environment:
+    #   - ICE=[{"urls":"stun:stun.l.google.com:19302"},{"urls":"turn:你的TURN域名:3478","username":"user","credential":"pass"}]
+    #   # 对外域名(Cloudflare 隧道/Caddy 反代时设): 让二维码输出此域名而非 localhost
+    #   - BASE_URL=https://你的域名

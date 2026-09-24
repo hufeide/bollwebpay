@@ -1,0 +1,7 @@
+# Caddy 自动申请 HTTPS 并反代到 bollweb 容器(WebSocket 已自动处理)
+# 用法: 把下面 example.com 改成你的域名, 然后 `caddy run --config Caddyfile`
+# 若用 docker-compose 部署 bollweb, 把 8080 改成宿主机映射端口。
+
+your-domain.com {
+    reverse_proxy localhost:8080
+}

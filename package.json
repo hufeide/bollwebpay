@@ -1,0 +1,19 @@
+{
+  "name": "bollwebnew",
+  "version": "0.2.0",
+  "private": true,
+  "type": "module",
+  "description": "网页版 P2P 消息与文件传输(方案B): 浏览器原生 WebRTC 直连, 服务器只做信令撮合, 打不通时回退服务器中转。",
+  "scripts": {
+    "start": "node server.js",
+    "vendor": "node tools/build-vendor.mjs"
+  },
+  "dependencies": {
+    "crypto-js": "^4.2.0",
+    "qrcode": "^1.5.4",
+    "ws": "^8.18.0"
+  },
+  "devDependencies": {
+    "esbuild": "^0.28.2"
+  }
+}

@@ -1,0 +1,13 @@
+<view class="page">
+  <view class="title">bollweb 使用次数</view>
+  <view class="sub">按使用次数付费: 每 1 条对话或 1 次文件传输计 1 次。付费后获得一个带次数上限的新链接, 用尽即失效。</view>
+
+  <view class="card">
+    <view class="label">购买次数</view>
+    <input class="input" type="number" value="{{count}}" bindinput="onCountInput" placeholder="请输入次数" />
+    <view class="price">应付: ¥{{price}}</view>
+  </view>
+
+  <button class="buy" bindtap="pay">微信支付 ¥{{price}}</button>
+  <view class="hint">支付成功后自动跳转, 在结果页复制分享链接发给对方即可。</view>
+</view>

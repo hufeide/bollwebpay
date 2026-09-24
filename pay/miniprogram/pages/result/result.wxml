@@ -1,0 +1,21 @@
+<view class="page">
+  <block wx:if="{{status === 'paid'}}">
+    <view class="ok">✅ 支付成功</view>
+    <view class="card">
+      <view class="label">你的专属链接(带 {{limit}} 次额度)</view>
+      <view class="url" selectable="true">{{url}}</view>
+      <button class="copy" bindtap="copy">复制链接</button>
+    </view>
+    <view class="hint">把链接发给对方, 打开即进入同一加密房间。对话/传输累计达到 {{limit}} 次后链接自动失效。</view>
+  </block>
+
+  <block wx:elif="{{status === 'provision_failed'}}">
+    <view class="err">⚠️ 链接分发失败</view>
+    <button class="copy" bindtap="reopen">返回重试</button>
+  </block>
+
+  <block wx:else>
+    <view class="pending">支付处理中…</view>
+    <view class="hint">正在确认支付结果, 请稍候(不要关闭页面)。</view>
+  </block>
+</view>

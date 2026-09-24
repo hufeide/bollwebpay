@@ -1,0 +1,9 @@
+.page { padding: 24rpx; }
+.ok { font-size: 40rpx; font-weight: 700; color: #07c160; margin: 24rpx 0; }
+.err { font-size: 40rpx; font-weight: 700; color: #ef4444; margin: 24rpx 0; }
+.pending { font-size: 36rpx; font-weight: 700; margin: 24rpx 0; }
+.card { background: #fff; border-radius: 16rpx; padding: 32rpx; margin-bottom: 32rpx; box-shadow: 0 2rpx 12rpx rgba(0,0,0,.05); }
+.label { color: #6b7280; font-size: 26rpx; margin-bottom: 12rpx; }
+.url { font-size: 24rpx; word-break: break-all; background: #f3f4f6; border-radius: 12rpx; padding: 20rpx; margin-bottom: 16rpx; }
+.copy { background: #111827; color: #fff; border-radius: 12rpx; font-size: 30rpx; }
+.hint { color: #9ca3af; font-size: 24rpx; margin-top: 24rpx; line-height: 1.6; }

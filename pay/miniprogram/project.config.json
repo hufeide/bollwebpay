@@ -1,0 +1,18 @@
+{
+  "description": "bollweb 次数购买小程序",
+  "packOptions": { "ignore": [], "include": [] },
+  "setting": {
+    "urlCheck": true,
+    "es6": true,
+    "enhance": true,
+    "postcss": true,
+    "minified": true,
+    "newFeature": true
+  },
+  "compileType": "miniprogram",
+  "libVersion": "3.0.0",
+  "appid": "wx335625eac6ce66ea",
+  "projectname": "bollweb-pay",
+  "miniprogramRoot": "./",
+  "condition": {}
+}

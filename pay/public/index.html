@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>bollweb 次数购买(测试页)</title>
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 480px; margin: 40px auto; padding: 0 16px; color: #111827; }
+    h1 { font-size: 20px; } .row { margin: 16px 0; } input { width: 100%; padding: 10px; box-sizing: border-box; }
+    button { padding: 12px 16px; width: 100%; background: #111827; color: #fff; border: 0; border-radius: 8px; font-size: 16px; }
+    .hint { color: #6b7280; font-size: 13px; } .card { border: 1px solid #e5e7eb; border-radius: 12px; padding: 16px; margin-top: 20px; word-break: break-all; }
+    a { color: #2563eb; }
+  </style>
+</head>
+<body>
+  <h1>bollweb 次数购买 · 测试页</h1>
+  <p class="hint">正式使用请走微信小程序。此页主要用于 <code>MOCK_PAY=1</code> 联调: 下单即视为已支付并直接分发新链接。</p>
+  <div class="row"><label>使用次数</label><input id="count" type="number" value="10" min="1" /></div>
+  <div class="row"><button id="buy">下单并获取链接</button></div>
+  <div id="out"></div>
+
+  <script>
+    const api = location.origin;
+    document.getElementById('buy').onclick = async () => {
+      const count = parseInt(document.getElementById('count').value, 10) || 1;
+      const out = document.getElementById('out');
+      out.innerHTML = '下单中…';
+      try {
+        const r = await fetch(api + '/api/order', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ count }),
+        });
+        const d = await r.json();
+        if (d.mock) {
+          out.innerHTML = `<div class="card"><b>已支付(测试)</b><br/>房间: ${d.room}<br/>剩余次数: ${d.limit}<br/><a href="${d.url}" target="_blank">${d.url}</a><br/><button onclick="navigator.clipboard.writeText('${d.url}')">复制链接</button></div>`;
+        } else {
+          out.innerHTML = `<div class="card">订单号: ${d.orderId}<br/>请在微信内完成支付后查询。</div>`;
+        }
+      } catch (e) {
+        out.innerHTML = '失败: ' + e.message;
+      }
+    };
+  </script>
+</body>
+</html>

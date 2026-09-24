@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>bollweb · P2P 消息与文件</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div id="login" class="login">
+    <h1>bollweb</h1>
+    <p class="sub">P2P 消息与文件传输 · 端到端加密 · 同一房间码自动互连</p>
+    <div class="field"><label>昵称</label><input id="name" placeholder="你的昵称" /></div>
+    <div class="field"><label>房间码</label><input id="room" placeholder="可粘贴完整分享链接自动解析" /></div>
+    <div class="field"><label>密钥</label><input id="key" placeholder="分享链接里的密钥（端到端加密用）" /></div>
+    <div class="btn-row">
+      <button id="enter">进入房间</button>
+      <button id="createRoom" class="btn-secondary">创建房间 → 二维码</button>
+    </div>
+    <p id="loginErr" class="err"></p>
+    <p class="hintline">点“创建房间”生成二维码，手机扫码即可加入；消息用密钥端到端加密，服务器无法读取内容。</p>
+  </div>
+
+  <div id="app" class="app hidden">
+    <aside class="sidebar">
+      <div class="me">我: <span id="meName"></span></div>
+      <div class="peers-title">在线同伴 (<span id="peerCount">0</span>)</div>
+      <ul id="peerList" class="peer-list"></ul>
+      <div class="status" id="status"></div>
+    </aside>
+    <main class="main">
+      <div id="transfers" class="transfers"></div>
+      <div id="dlBar" class="dl-bar">
+        <label class="sel-all"><input type="checkbox" id="selAll" /> 全选</label>
+        <button id="dlSelected">📦 下载选中 (0)</button>
+      </div>
+      <div id="messages" class="messages"></div>
+      <div class="composer">
+        <input id="msgInput" placeholder="输入消息，回车发送" />
+        <button id="sendBtn">发送</button>
+        <label class="filebtn">📎 文件<input type="file" id="fileInput" hidden /></label>
+      </div>
+    </main>
+  </div>
+
+  <div id="qrModal" class="modal hidden">
+    <div class="modal-box">
+      <h3>扫码加入房间</h3>
+      <canvas id="qrCanvas" width="240" height="240"></canvas>
+      <p id="qrUrl" class="qr-url"></p>
+      <div class="btn-row">
+        <button id="qrCopy">复制链接</button>
+        <button id="qrClose" class="btn-secondary">关闭</button>
+      </div>
+      <p class="hintline">把此二维码/链接发给同伴，他们打开即自动进入同一加密房间。</p>
+    </div>
+  </div>
+
+  <!--BASE_URL-->
+  <script src="vendor/qrcode.js"></script>
+  <script src="vendor/crypto-js.js"></script>
+  <script src="crypto-e2e.js"></script>
+  <script src="signaling.js"></script>
+  <script src="webrtc.js"></script>
+  <script src="file-transfer.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
