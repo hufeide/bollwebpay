@@ -30,9 +30,9 @@
         <div class="prev-input">输入消息，回车发送 📎</div>
       </div>
 
-      <button class="primary" id="btnExperience">免费体验（赠 <span id="freeUses">10</span> 次）</button>
+      <button class="primary" id="btnExperience">免费体验（赠 <span id="freeUses">10</span> 次 · 单文件≤<span id="freeMaxHome">2M</span>）</button>
       <button class="secondary" id="btnBuy">购买次数</button>
-      <button class="link" id="btnRecords">我的记录 / 剩余次数</button>
+      <button class="link" id="btnRecords">我的记录</button>
 
       <div class="hint">体验与正式使用一致：把生成的链接发给对方，打开即进入同一加密房间，可互传文件/图片/视频/音频。</div>
     </section>
@@ -42,7 +42,7 @@
       <div class="title">购买使用次数</div>
       <div class="intro">
         <div class="intro-row"><span>计费方式</span><span class="v">每 1 条消息 / 1 次传输 = 1 次</span></div>
-        <div class="intro-row"><span>新用户赠送</span><span class="v hl">免费 <span id="freeUses2">10</span> 次体验</span></div>
+        <div class="intro-row"><span>新用户赠送</span><span class="v hl">免费 <span id="freeUses2">10</span> 次体验（单文件 ≤ <span id="freeMax">2M</span>）</span></div>
         <div class="intro-row"><span>使用方式</span><span class="v">购买后获分享链接, 发给对方即可互传</span></div>
         <div class="intro-tip">次数用尽链接自动失效；不同套餐对应不同的单文件大小上限。支付使用去中心化 x402（浏览器钱包直接付 USDC，无需微信）。</div>
       </div>
@@ -54,6 +54,7 @@
 
       <button class="buy" id="btnPay">去支付 <span id="selPrice"></span></button>
       <div class="hint" id="payHint">支付成功后自动跳转，在结果页复制分享链接发给对方即可。</div>
+      <button class="link" id="btnHomeBuy">返回首页</button>
     </section>
 
     <!-- 结果 -->
@@ -68,17 +69,14 @@
         </div>
         <div class="hint" id="resultRemaining"></div>
         <div class="hint" id="resultLimit"></div>
-        <div class="card reapply" id="reapplyCard">
-          <div class="label">剩余次数：<span id="reapplyRemaining"></span> 次</div>
-          <div class="hint">旧地址失效、或想换一个新地址时，可用剩余次数重新申请。</div>
-          <button class="copy" id="btnReapply">用剩余次数重新申请地址</button>
-        </div>
       </div>
       <button class="link" id="btnHome2">返回首页</button>
     </section>
 
     <!-- 记录 -->
     <section id="page-records" class="page hidden">
+      <div class="title">我的记录</div>
+
       <div class="stat">
         <div class="item"><div class="num hl" id="recFree">0</div><div class="cap">免费剩余(次)</div></div>
         <div class="item"><div class="num" id="recPurchased">0</div><div class="cap">已购(次)</div></div>
@@ -86,11 +84,11 @@
         <div class="item"><div class="num" id="recRemaining">0</div><div class="cap">剩余(次)</div></div>
       </div>
 
-      <button class="primary" id="btnApplyNew" >用剩余次数申请新地址</button>
+      <button class="secondary" id="btnUpdateAll">更新全部地址</button>
       <button class="link" id="btnBuy2">立即购买次数</button>
 
-      <div class="title">我的地址</div>
-      <div class="empty" id="recEmpty">还没有地址，去购买或申请吧</div>
+      <div class="title">我的地址（按套餐）</div>
+      <div class="empty" id="recEmpty">还没有购买记录，去购买或申请吧</div>
       <div id="addrList"></div>
       <button class="link" id="btnHome3">返回首页</button>
     </section>

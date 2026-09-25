@@ -186,6 +186,25 @@ async function handleApi(req, res, urlPath) {
     });
   }
 
+  // 主动禁用房间(需管理员令牌): POST /api/room/:room/disable —— 让链接立即失效
+  const md = urlPath.match(/^\/api\/room\/([^/]+)\/disable$/);
+  if (md && req.method === 'POST') {
+    cors();
+    const auth = req.headers['authorization'] || '';
+    const token = auth.startsWith('Bearer ') ? auth.slice(7) : (req.headers['x-admin-token'] || '');
+    if (!PROVISION_TOKEN || token !== PROVISION_TOKEN) {
+      return sendJson(res, 401, { error: 'unauthorized' });
+    }
+    const room = decodeURIComponent(md[1]);
+    const lim = roomLimits.get(room);
+    if (!lim) return sendJson(res, 404, { error: 'no such room limit' });
+    lim.disabled = true;
+    const rm = rooms.get(room);
+    if (rm) for (const [, p] of rm) send(p.ws, { type: 'room-expired', used: lim.used, limit: lim.limit });
+    saveLimits();
+    return sendJson(res, 200, { ok: true, room, disabled: true });
+  }
+
   // 预创建带额度的房间(需管理员令牌): POST /api/provision { count, room?, note? }
   if (urlPath === '/api/provision' && req.method === 'POST') {
     cors();
@@ -226,7 +245,21 @@ async function handleApi(req, res, urlPath) {
 const wss = new WebSocketServer({ server, path: '/ws' });
 function send(ws, obj) { if (ws.readyState === 1) ws.send(JSON.stringify(obj)); }
 
+// 心跳: 每 25s 向所有客户端发 ping, 未回 pong 的判定为死连接并 terminate。
+// 作用: 1) 防止 Cloudflare / 隧道 / 路由器掐断空闲 WebSocket; 2) 让 peer-leave 及时触发, 在线列表更准确。
+const HEARTBEAT_MS = 25000;
+const heartbeat = setInterval(() => {
+  for (const ws of wss.clients) {
+    if (ws.isAlive === false) { try { ws.terminate(); } catch {} continue; }
+    ws.isAlive = false;
+    try { ws.ping(); } catch {}
+  }
+}, HEARTBEAT_MS);
+wss.on('close', () => clearInterval(heartbeat));
+
 wss.on('connection', (ws) => {
+  ws.isAlive = true;
+  ws.on('pong', () => { ws.isAlive = true; });
   ws.room = null; ws.peerId = null; ws.name = null;
   ws.on('message', (raw) => {
     let m; try { m = JSON.parse(raw.toString()); } catch { return; }

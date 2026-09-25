@@ -15,33 +15,82 @@ const RTC = (() => {
   }
 
   function createPeer(peerId, name, initiator) {
-    if (peers.has(peerId)) return peers.get(peerId);
+    let p = peers.get(peerId);
+    if (p) {
+      p.name = name || p.name;
+      // 对方(或本端)重连后, 服务端会再次下发 peer-join。若旧连接已关闭则整体重建;
+      // 若仍存活但未连通则由发起方做 ICE 重启, 实现链路自愈, 无需用户刷新页面。
+      if (p.pc && p.pc.connectionState === 'closed') {
+        try { p.pc.close(); } catch {}
+        peers.delete(peerId);
+        return createPeer(peerId, name, initiator);
+      }
+      if (initiator && !p.connected) restartIce(p, peerId);
+      return p;
+    }
     const pc = new RTCPeerConnection({ iceServers });
-    const p = { pc, dc: null, name: name || '?', connected: false, pending: [], making: false };
-    peers.set(peerId, p);
+    const np = { pc, dc: null, name: name || '?', connected: false, pending: [], making: false, initiator: !!initiator, restartTimer: null };
+    peers.set(peerId, np);
 
     pc.onicecandidate = (e) => { if (e.candidate) Signaling.send({ type: 'signal', to: peerId, data: { ice: e.candidate } }); };
     pc.onconnectionstatechange = () => {
       const s = pc.connectionState;
-      if (s === 'failed' || s === 'closed' || s === 'disconnected') { p.connected = false; onPeerState(peerId, false); }
+      if (s === 'connected') {
+        if (np.restartTimer) { clearTimeout(np.restartTimer); np.restartTimer = null; }
+        if (!np.connected) { np.connected = true; onPeerState(peerId, true); }
+        return;
+      }
+      if (s === 'failed') {
+        if (np.connected) { np.connected = false; onPeerState(peerId, false); }
+        if (np.restartTimer) { clearTimeout(np.restartTimer); np.restartTimer = null; }
+        if (np.initiator) restartIce(np, peerId);   // failed 也由发起方 ICE 重启自愈
+        return;
+      }
+      if (s === 'closed') {
+        if (np.connected) { np.connected = false; onPeerState(peerId, false); }
+        return;
+      }
+      if (s === 'disconnected') {
+        // 网络抖动可能瞬恢复, 先宽限 3s; 仍不通则由发起方做 ICE 重启自愈
+        if (np.restartTimer) return;
+        np.restartTimer = setTimeout(() => {
+          np.restartTimer = null;
+          const st = np.pc.connectionState;
+          if ((st === 'disconnected' || st === 'failed') && np.initiator) restartIce(np, peerId);
+        }, 3000);
+      }
     };
 
     if (initiator) {
-      p.dc = pc.createDataChannel('data');
-      setupDc(p, peerId);
+      np.dc = pc.createDataChannel('data');
+      setupDc(np, peerId);
       pc.onnegotiationneeded = async () => {
-        if (p.making) return;
-        p.making = true;
+        if (np.making) return;
+        np.making = true;
         try {
           const offer = await pc.createOffer();
           await pc.setLocalDescription(offer);
           Signaling.send({ type: 'signal', to: peerId, data: { sdp: pc.localDescription } });
-        } catch (e) { /* ignore */ } finally { p.making = false; }
+        } catch (e) { /* ignore */ } finally { np.making = false; }
       };
     } else {
-      pc.ondatachannel = (e) => { p.dc = e.channel; setupDc(p, peerId); };
+      pc.ondatachannel = (e) => { np.dc = e.channel; setupDc(np, peerId); };
     }
-    return p;
+    return np;
+  }
+
+  // ICE 重启: 由发起方重新生成含 iceRestart 的 offer, 让 NAT 重绑/网络切换后的连接自愈。
+  // 仅发起方发起即可: RTCPeerConnection 状态两端共享, 任一端掉线另一端也会进入 disconnected 并触发重启。
+  function restartIce(p, peerId) {
+    if (!p || !p.pc || p.pc.connectionState === 'closed') return;
+    try {
+      p.making = true;
+      p.pc.createOffer({ iceRestart: true })
+        .then((offer) => p.pc.setLocalDescription(offer))
+        .then(() => Signaling.send({ type: 'signal', to: peerId, data: { sdp: p.pc.localDescription } }))
+        .catch(() => {})
+        .finally(() => { p.making = false; });
+    } catch (e) { p.making = false; }
   }
 
   function setupDc(p, peerId) {

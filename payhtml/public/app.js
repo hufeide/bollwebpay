@@ -58,6 +58,8 @@ async function init() {
     state.config = await api('/config');
     $('freeUses').textContent = state.config.freeUses;
     $('freeUses2').textContent = state.config.freeUses;
+    if ($('freeMax') && state.config.freeMaxFileText) $('freeMax').textContent = state.config.freeMaxFileText;
+    if ($('freeMaxHome') && state.config.freeMaxFileText) $('freeMaxHome').textContent = state.config.freeMaxFileText;
   } catch (e) { console.warn('config 加载失败', e); }
 
   try {
@@ -118,11 +120,15 @@ function wireEvents() {
   $('btnRecords').onclick = () => { if (!ensureWallet()) return; loadRecords(); showPage('records'); };
   $('btnPay').onclick = pay;
   $('btnCopy').onclick = copyUrl;
-  $('btnReapply').onclick = reapply;
   $('btnHome2').onclick = () => showPage('home');
   $('btnHome3').onclick = () => showPage('home');
-  $('btnApplyNew').onclick = reapplyFromRecords;
   $('btnBuy2').onclick = () => showPage('buy');
+  $('btnHomeBuy').onclick = () => showPage('home');
+  $('btnUpdateAll').onclick = async () => {
+    toast('正在更新全部地址…');
+    await loadRecords();
+    toast('已更新为当前隧道地址');
+  };
 }
 
 // ---------- 钱包 ----------
@@ -296,8 +302,6 @@ function showResult(data, isFree) {
   api('/user/' + state.address + '?device=' + getDeviceId()).then((info) => {
     $('resultRemaining').textContent = `账户剩余 ${info.remaining} 次；每条消息 / 每次传输消耗 1 次（申请地址本身不消耗）。`;
     $('resultLimit').textContent = info.maxFileText ? `当前套餐单文件上限：${info.maxFileText}` : '';
-    $('reapplyRemaining').textContent = info.remaining;
-    if (info.remaining > 0) show('reapplyCard'); else hide('reapplyCard');
   }).catch(() => {});
 }
 async function copyUrl() {
@@ -306,15 +310,6 @@ async function copyUrl() {
   try { await navigator.clipboard.writeText(url); toast('链接已复制'); }
   catch { toast('复制失败, 请手动复制'); }
 }
-async function reapply() {
-  try {
-    toast('申请新地址中…');
-    const r = await api('/room/new', { method: 'POST', body: JSON.stringify({ address: state.address, deviceId: getDeviceId() }) });
-    showResult(r, false);
-    toast('已生成新地址');
-  } catch (e) { toast(e.message); }
-}
-
 // ---------- 我的记录 ----------
 async function loadRecords() {
   try {
@@ -323,38 +318,47 @@ async function loadRecords() {
     $('recPurchased').textContent = info.purchased || 0;
     $('recUsed').textContent = info.used || 0;
     $('recRemaining').textContent = info.remaining || 0;
+
     const list = $('addrList');
     list.innerHTML = '';
     if (!info.addresses || !info.addresses.length) { show('recEmpty'); return; }
     hide('recEmpty');
+    // 每个套餐各自一条地址(地址随套餐不同, 且带「次数上限」与「单文件大小上限」)。
+    // 链接已由服务端用「当前隧道公网地址」重建, 故每次打开本页即为最新; 也可点「更新地址」手动刷新。
     info.addresses.forEach((ad) => {
+      // 直接采用主服务房间的真实额度(limit/used/remaining), 与「用完即失效」的强制逻辑保持一致,
+      // 不再用套餐次数覆盖, 避免出现「额度 10 却已用 22」的自相矛盾。
+      const remaining = ad.roomRemaining;
+      const usable = remaining > 0 && !ad.disabled;
+      const badge = ad.disabled ? '已失效' : (usable ? '可用' : '已用完');
       const el = document.createElement('div');
       el.className = 'addr';
       el.innerHTML = `
         <div class="addr-top">
           <div class="pkg">${ad.label || '套餐'}</div>
-          <div class="badge ${ad.valid ? 'ok' : 'bad'}">${ad.valid ? '有效' : '已失效'}</div>
+          <div class="badge ${usable ? 'ok' : 'bad'}">${badge}</div>
         </div>
-        <div class="url">${ad.url}</div>
+        <div class="meta">次数：额度 ${ad.roomLimit} · 已用 ${ad.roomUsed} · 剩余 ${remaining}</div>
+        <div class="meta">单文件上限：${ad.maxFileText}</div>
         <div class="meta">消费 ${ad.priceText} · ${ad.createdAtText}</div>
-        <div class="meta">额度 ${ad.roomLimit} 次 · 已用 ${ad.roomUsed} · 剩余 ${ad.roomRemaining}</div>
+        ${usable ? `
+        <div class="url">${ad.url}</div>
         <div class="btn-row">
           <button class="copy" data-url="${ad.url}">复制</button>
-        </div>`;
-      el.querySelector('button').onclick = (e) => {
-        navigator.clipboard.writeText(e.target.dataset.url).then(() => toast('已复制'));
-      };
+          <button class="copy btn-update">更新地址</button>
+        </div>` : `<div class="hint">${ad.disabled ? '该地址已被禁用。' : '该套餐额度已用完，地址已失效，请重新购买套餐获取新链接。'}</div>`}
+      `;
+      el.querySelectorAll('button.copy').forEach((b) => {
+        b.onclick = (e) => {
+          if (e.target.classList.contains('btn-update')) {
+            toast('正在刷新地址…'); loadRecords();
+          } else {
+            navigator.clipboard.writeText(e.target.dataset.url).then(() => toast('已复制')).catch(() => toast('复制失败'));
+          }
+        };
+      });
       list.appendChild(el);
     });
   } catch (e) { toast(e.message); }
 }
-async function reapplyFromRecords() {
-  try {
-    toast('申请新地址中…');
-    await api('/room/new', { method: 'POST', body: JSON.stringify({ address: state.address, deviceId: getDeviceId() }) });
-    toast('已生成新地址');
-    loadRecords();
-  } catch (e) { toast(e.message); }
-}
-
 init();

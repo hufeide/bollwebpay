@@ -23,7 +23,7 @@ import {
 } from './x402.js';
 import {
   PACKAGES, fmtSize, getPackage, ensureAccount, loadOrder, saveOrder,
-  genOrderId, markPaid, newAddress, buildUserInfo, FREE_USES,
+  genOrderId, markPaid, newAddress, buildUserInfo, disableRoom, FREE_USES, FREE_MAX_FILE_BYTES,
 } from './store.js';
 import { createLocalKV } from './kv-local.js';
 
@@ -141,6 +141,8 @@ async function handleApi(req, res, url, c, kv) {
       facilitator: c.facilitatorUrl,
       mock: c.mock,
       freeUses: FREE_USES,
+      freeMaxFileBytes: FREE_MAX_FILE_BYTES,
+      freeMaxFileText: fmtSize(FREE_MAX_FILE_BYTES),
     });
   }
 
@@ -243,6 +245,19 @@ async function handleApi(req, res, url, c, kv) {
     if (!c.mainBaseUrl) return sendJson(res, { error: '服务端未配置主服务地址 MAIN_BASE_URL' }, 500);
     try {
       const r = await newAddress(kv, c, address, String(body.deviceId || ''));
+      return sendJson(res, r);
+    } catch (e) {
+      return sendJson(res, { error: e.message }, 400);
+    }
+  }
+
+  // 主动禁用某房间(让链接失效)
+  const dm = apiPath.match(/^room\/([^/]+)\/disable$/);
+  if (dm && req.method === 'POST') {
+    const room = decodeURIComponent(dm[1]);
+    if (!c.mainBaseUrl) return sendJson(res, { error: '服务端未配置主服务地址 MAIN_BASE_URL' }, 500);
+    try {
+      const r = await disableRoom(c, room);
       return sendJson(res, r);
     } catch (e) {
       return sendJson(res, { error: e.message }, 400);

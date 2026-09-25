@@ -27,6 +27,30 @@ async function onApp(from, msg) {
 function onPeerState(peerId, connected) {
   peerState.set(peerId, connected);
   renderPeers();
+  updateConnState();
+}
+
+// 顶部全局连接状态灯: 直观显示 信令连通性 / P2P 直连 / 经中继
+function updateConnState() {
+  const el = $('connState'); if (!el) return;
+  const dot = el.querySelector('.dot');
+  const txt = $('connText');
+  if (!Signaling.isOpen()) {
+    dot.className = 'dot off';
+    txt.textContent = '信令断开，正在自动重连…';
+    return;
+  }
+  const hasP2P = [...peerState.values()].some(Boolean);
+  if (roomPeers.size === 0) {
+    dot.className = 'dot idle';
+    txt.textContent = '已连接，等待同伴加入';
+  } else if (hasP2P) {
+    dot.className = 'dot on';
+    txt.textContent = '已连接 · P2P 直连';
+  } else {
+    dot.className = 'dot relay';
+    txt.textContent = '已连接 · 经服务器中继';
+  }
 }
 
 // ---------- 进入房间 ----------
@@ -46,7 +70,7 @@ function enter() {
   $('meName').textContent = myName;
 
   Signaling.connect();
-  Signaling.on('open', () => Signaling.send({ type: 'join', room, name: myName, peerId: myId }));
+  Signaling.on('open', () => { Signaling.send({ type: 'join', room, name: myName, peerId: myId }); updateConnState(); });
   Signaling.on('joined', async (m) => {
     RTC.init({ myId, iceServers: m.iceServers, onApp, onPeerState });
     $('status').textContent = '已加入房间 ' + room + (E2E.cryptoMode === 'enc' ? '（端到端加密已开启）' : '') + '，正在建立 P2P 连接…';
@@ -74,23 +98,28 @@ function enter() {
         if (st) st.textContent += ` · 单文件上限 ${txt}`;
       }
     }).catch(() => {});
+    updateConnState();
   });
   Signaling.on('peer-join', (m) => {
+    const wasKnown = roomPeers.has(m.peerId);
     roomPeers.set(m.peerId, m.name);
-    RTC.createPeer(m.peerId, m.name, true);   // 我们作为已在房间的一方, 主动发起 offer
+    RTC.createPeer(m.peerId, m.name, true);   // 我们作为已在房间的一方, 主动发起 offer(对方重连时内部自动 ICE 重启)
     renderPeers();
-    addSystem(`🔗 ${m.name} 加入了房间`);
+    updateConnState();
+    if (!wasKnown) addSystem(`🔗 ${m.name} 加入了房间`);  // 重连场景不再刷“加入”提示
   });
   Signaling.on('peer-leave', (m) => {
     RTC.closePeer(m.peerId);
     const nm = roomPeers.get(m.peerId);
     roomPeers.delete(m.peerId); peerState.delete(m.peerId);
     renderPeers();
+    updateConnState();
     if (nm) addSystem(`⚪ ${nm} 离开了房间`);
   });
   Signaling.on('signal', (m) => RTC.handleSignal(m.from, m.data));
   Signaling.on('relay', (m) => onApp(m.from, m.data));
-  Signaling.on('close', () => { $('status').textContent = '与信令服务器断开，请刷新页面重连'; });
+  Signaling.on('close', () => { $('status').textContent = '与信令服务器断开，正在自动重连…'; updateConnState(); });
+  Signaling.on('reconnecting', () => { updateConnState(); });
   // 链接失效(额度用尽/房间不存在): 退回登录页并提示
   Signaling.on('error', (m) => {
     // 文件超限为软错误, 仅提示, 不踢出房间(发送端已提前拦截, 这里是兜底)

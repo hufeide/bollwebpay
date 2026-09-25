@@ -186,3 +186,174 @@ ad3f8c701185bba1efe5bed103a76d047a94275fbea59ccbfa842c498db02f03
 
 ./start.sh            # 自动开主服务隧道, 动态注入 MAIN_BASE_URL
 MOCK_PAY=1 ./start.sh # 不走微信支付，直接返回 MOCK 链接
+
+
+
+
+
+
+
+用户问：这个项目可以部署在哪里做到免费部署。
+
+我需要了解项目的部署方式：这是一个 Node.js 项目（server.js 主服务 + pay/server.js 支付服务），用了 cloudflared 临时隧道，WebSocket 信令，微信小程序支付。
+
+我应该基于项目实际情况给出免费部署方案。让我先确认项目的技术栈和部署相关文件（Dockerfile, docker-compose, Caddyfile, deploy.sh），以便给出准确建议。
+
+让我读这些文件快速了解。但用户只是问"运行在哪里可以免费部署"，我应该给出通用建议，但要结合项目特点：
+- Node.js，需要长驻进程（WebSocket 信令 + pay 服务）
+- 免费部署平台：Railway、Render、Fly.io、Koyeb、Oracle Cloud 免费 VM、Cloudflare Workers（不行，因为需要长驻 WebSocket + Node）等
+- 微信小程序需要 HTTPS + 固定域名（当前用 cloudflared 临时隧道每次变域名，不适合生产）
+
+关键约束：
+1. 微信小程序要求 HTTPS 固定域名（ICP 备案在国内）。免费方案要能绑固定域名。
+2. WebSocket 长连接：需要支持 WS 的平台。
+3. 两个服务（主 + pay）。
+
+我应该基于项目实际给建议，而不是泛泛而谈。让我读 deploy.sh、Dockerfile、Caddyfile、docker-compose 来了解部署意图。
+
+让我并行读这些文件。
+
+注意用户语言是中文（之前对话有中文）。回答用中文。
+
+让我读部署相关文件。
+先快速看一下你项目里已有的部署配置（Dockerfile / docker-compose / Caddyfile / deploy.sh），再结合技术栈给出可落地的免费方案：
+现在我清楚项目结构了。这是个 Node.js (ESM) 项目，两个服务：主服务 server.js (8080) + pay/server.js (8081)。用到了 WebSocket（ws）、crypto-js、qrcode。当前用 cloudflared 临时隧道做公网。
+
+用户问"运行在哪里可以做到免费部署"。
+
+我需要结合项目特点给免费部署方案：
+
+技术约束：
+1. Node.js + 长驻 WebSocket 进程（信令服务，必须常驻）
+2. 两个进程（主 + pay），或合并
+3. 微信小程序需要 HTTPS 固定域名（国内需备案）。这是关键约束。
+4. 当前用 cloudflared 临时隧道，域名每次变——不适合生产（之前聊过）。
+
+免费部署平台选项（支持 Node.js 长驻 WebSocket）：
+- **Railway**：免费额度 $5/月，支持 Node，支持 WebSocket，可绑自定义域名（免费层绑域名需 Pro？其实 Railway 免费层可绑自定义 域名？现在 Railway 免费层有限，新用户 $5 额度）。适合。
+- **Render**：免费层有 Web Service（休眠 15 分钟不活动会 sleep，需付费保活）。支持 WebSocket。免费层可绑自定义 域名（render.com 子域免费，自定义 域名需要？免费层支持自定义域名）。但免费 Web Service 会休眠——信令服务休眠会导致连接断。不适合长驻 WebSocket 除非加保活或付费。
+- **Fly.io**：免费层有 3 个共享 VM（256MB），支持长驻，支持 WebSocket，可绑自定义 域名（免费）。非常适合！全球部署，免费额度够。
+- **Koyeb**：免费层，支持 WebSocket，自动 HTTPS。
+- **Oracle Cloud Free Tier**：永远免费的 ARM VM（4 OCPU, 24GB RAM）——完全免费、长驻、可装 Docker。最稳定，但需要自己绑域名/HTTPS（用 Caddy + 自有域名或 cloudflared）。
+- **Cloudflare**：Workers 不支持长驻 WebSocket server（Workers 有 WebSocket 但限制，且不能持久连接很好）；但 Cloudflare Tunnel 免费（固定隧道 named tunnel 免费！）可把本地/VM 暴露到固定域名。配合 Oracle 免费 VM 是最佳免费组合。
+- **Hugging Face Spaces**：免费，但适合演示，长驻 WebSocket 可能受限。
+- **Vercel / Netlify**：Serverless，不适合长驻 WebSocket 信令（函数超时）。不适合。
+
+关键问题：微信小程序要求：
+- 必须是 HTTPS（且国内小程序要求域名 ICP 备案，https 且备案通过）。
+- 微信虚拟支付需要配置回调 URL（固定域名）。
+- 所以免费部署 + 微信小程序生产，需要：免费 VM（Oracle）+ 固定域名（自己买或免费子域）+ HTTPS（Caddy/Let's Encrypt 或 Cloudflare）+ 备案。
+
+但"免费"——域名通常要钱（.com 等）。可以用免费子域（如 .cf 免费？Cloudflare 提供隧道子域 *.trycloudflare.com 免费但每次变）。要固定免费域名，可用：
+- 自己的二级域（如 eu.org 免费，或 pp.ua 免费，或 .tk/.ml 免费但需续）。
+- 或用 Cloudflare Tunnel 固定隧道（需先在 Cloudflare 有域名或用法 zone）。
+
+综合建议，按"免费程度 + 适合微信小程序"排序：
+
+**方案 A（最推荐，真正免费且适合生产）：Oracle Cloud 免费 ARM VM + Cloudflare Tunnel（固定隧道）**
+- Oracle 永久免费 VM（4 OCPU / 24G），装 Docker，跑 server.js + pay/server.js。
+- Cloudflare 免费"named tunnel"给固定域名（免费！），解决"每次域名变"问题，且 HTTPS。
+- 缺点：微信小程序国内要求备案域名；Cloudflare 隧道域名为 *.cf 或你自己的域。国内访问 Cloudflare 可能慢/被墙。所以国内小程序用 Cloudflare 可能不稳。
+
+**方案 B（国内友好，但需要备案）：** 任何国内免费/低价 VM（如 腾讯云轻量、阿里云 99/年——不算完全免费）。微信小程序必须国内服务器+备案。严格"免费"在国内很难满足备案要求。
+
+**方案 C（海外，适合测试/非国内用户）：Railway / Fly.io / Render**
+- 免费层，自动 HTTPS，支持 WebSocket。
+- 绑定自定义域名（自有域）或平台子域。
+- 微信小程序如果用海外域名需备案？微信要求：小程序请求域名必须备案（国内 + 部分海外？实际微信要求 HTTPS 且域名需备案，无论国内外，未备案域名在小程序里无法配置）。所以即使海外部署，小程序后台配置 request 合法域名也必须备案。这是个硬约束。
+
+所以"免费部署 + 微信小程序可用"的核心矛盾：
+- 微信小程序 request/支付回调域名必须 ICP 备案。
+- 完全免费且能备案的域名/服务器几乎没有（备案需大陆服务器且通常付费）。
+
+我应该如实告诉用户这个约束，并给出两个层面：
+1. 纯技术免费部署（Web 可用，不涉及小程序生产）：Oracle 免费 VM / Fly.io / Railway / Render + Cloudflare Tunnel 固定域名。
+2. 要微信小程序真正能用（虚拟支付、回调）：需固定已备案域名 + 国内可达服务器（付费为主，如腾讯云轻量 99/年），或用自有已备案域名 + 海外 VM。
+
+我先给清晰对比表，然后推荐具体方案。
+
+另外，项目当前两个服务，免费平台通常一个服务一个 Web Service，或用一个 VM 跑两个。Fly.io/Railway 可一个服务跑两个进程（用 start.sh）。注意 start.sh 用了 cloudflared 隧道——在平台部署时不应再用 cloudflared（平台已给公网域名+HTTPS），应去掉 TUNNEL，用平台域名作为 BASE_URL/MAIN_BASE_URL/PAY_NOTIFY_BASE_URL。
+
+我应该提醒部署到平台时要：
+- TUNNEL=0（关隧道）
+- 设 BASE_URL / MAIN_BASE_URL / PAY_NOTIFY_BASE_URL 为平台提供的域名
+- 设 PROVISION_TOKEN 固定值
+- 微信虚拟支付需配置回调到 PAY_NOTIFY_BASE_URL/pay/notify
+
+考虑到用户之前一直用临时隧道折腾，我重点推荐 Oracle 免费 VM + Cloudflare 固定隧道（彻底解决"每次域名变"），以及 Fly.io（最简单免费+长驻+HTTPS）。
+
+让我组织回答，简洁但有信息量。用户是中文。
+
+我不需要改代码，只是回答部署建议。但我可以给出具体的部署步骤概要。
+
+回答结构：
+1. 先点出约束（微信小程序必须 HTTPS + 备案域名，这是免费部署的硬门槛）。
+2. 免费平台对比（Web 可用 / 小程序生产可用）。
+3. 推荐方案 + 简述步骤。
+4. 提醒项目部署注意事项（关隧道、设环境变量、双服务）。
+
+让我写出来。不需要工具调用了，信息已够。
+
+关于免费平台具体额度我应准确：
+- Oracle Cloud Free Tier：2 台 AMD VM（1/8 OCPU, 1GB）或 1 台 ARM（4 OCPU, 24GB），永久免费。需信用卡验证。
+- Fly.io：免费层 3 共享 CPU VM 256MB，每月 3GB 出流量。免费。
+- Railway：新用户 $5 额度（含免费 500 小时），之后付费。可绑自定义域名（Pro 才支持？其实 Railway 免费层可绑自定义域名，但免费项目有 $5 额度限制）。
+- Render：免费 Web Service 750 小时/月，但会休眠（15 分钟无活动 sleep）。WebSocket 长驻会被休眠打断——信令服务不适合，除非付费 $7/mo 保活。所以 Render 不推荐用于信令。
+- Koyeb：免费层，不休眠？Koyeb 免费有休眠？不太确定。略提。
+
+WebSocket 长驻关键：要选"不休眠"的平台（Oracle VM、Fly.io、Railway 活跃期、Koyeb）。
+
+我给出推荐：Oracle 免费 VM（最强）和 Fly.io（最省事）。
+
+另外 Cloudflare Tunnel 永久免费且给固定子域（需添加网站到 CF，或 quick tunnel 每次变；named tunnel 固定但需 zone）。其实 Cloudflare 免费账户可创建 tunnel 并分配到 cf 子域（如 xxx.cfargotunnel.com）固定——免费！这解决域名变问题。配合任意有公网 IP 的 VM（Oracle 免费）。
+
+综合给出。
+
+注意微信小程序在国内，Cloudflare 国内访问慢且隧道域名未备案无法在小程序配置。所以小程序场景还是得国内备案域名。我如实说明。
+
+写回答。
+看了你的部署配置（Docker + Caddy + cloudflared 临时隧道），这是个 **Node.js ESM 双进程**项目（主服务 `server.js:8080` + 支付 `pay/server.js:8081`），靠 WebSocket 长驻做信令，且要对接**微信小程序虚拟支付**（必须 HTTPS + 固定域名 + 备案）。
+
+先说一个硬约束，决定"免费"能做到哪一步：
+
+> **微信小程序的生产可用 = 固定 HTTPS 域名 + ICP 备案**。完全免费且能备案的服务器/域名几乎没有（备案需大陆服务器，通常付费）。所以"免费部署"分两层：① 网页版（WebRTC 传输）可完全免费；② 小程序真正能付钱回调，得有备案域名（可借自有已备案域名 + 免费 VM）。
+
+## 免费平台对比（都能跑 Node + 长驻 WebSocket）
+
+| 平台 | 免费额度 | 长驻不休眠 | HTTPS | 适合本项目 |
+|------|----------|------------|-------|-----------|
+| **Oracle Cloud 免费 VM** | 永久免费 4 OCPU/24G ARM（或 2×1G AMD） | ✅ 永远在线 | 需自配（Caddy/CF） | ⭐ 最推荐（最强免费） |
+| **Fly.io** | 3 个 256MB VM + 3GB/月流量 | ✅ 不休眠 | ✅ 自动 | ⭐ 最省事 |
+| **Railway** | 新用户 $5 额度（约 500h/月） | ⚠️ 额度用完停机 | ✅ 自动 | 适合试用 |
+| **Render** | 750h/月 | ❌ 15min 无活动休眠 | ✅ 自动 | ❌ 信令会断 |
+| **Koyeb** | 免费层 | ✅ | ✅ 自动 | 可用 |
+| Vercel/Netlify | Serverless | ❌ 函数超时 | ✅ | ❌ 不适合长驻信令 |
+
+## 推荐方案
+
+### 方案 A（最推荐，真正免费 + 解决"域名每次变"）
+**Oracle Cloud 免费 ARM VM + Cloudflare 固定隧道**
+1. 开 Oracle 永久免费 VM，装 Docker。
+2. 项目用 `docker compose up -d`（已是现成 `docker-compose.yml`，但注意它**没挂 volume**——之前聊过 `limits.json`/`orders.json` 要落盘，需加 volume）。
+3. Cloudflare 免费 **named tunnel** 绑一个固定子域（如 `boll.xxx.cfargotunnel.com`），彻底免除 `trycloudflare.com` 每次重启变域名。
+4. 关掉项目自带的 `cloudflared`：`TUNNEL=0 ./start.sh`，改用平台/CF 域名。
+
+### 方案 B（最省事，海外/非备案测试）
+**Fly.io**
+- 一个 `fly.toml` 跑 `start.sh`（`TUNNEL=0`，`BASE_URL/MAIN_BASE_URL/PAY_NOTIFY_BASE_URL` 设为 `xxx.fly.dev`）。
+- 自动 HTTPS、不休眠、全球边缘，适合验证传输与支付联调（MOCK 模式）。
+
+## 部署到这些平台时必须改的（关键）
+你的 `start.sh` 默认开 cloudflared 隧道并自动塞域名，**上云后不要再开隧道**：
+```
+TUNNEL=0 BASE_URL=https://你的域名 MAIN_BASE_URL=https://你的域名 PAY_NOTIFY_BASE_URL=https://你的域名 PROVISION_TOKEN=固定值 ./start.sh
+```
+且 `docker-compose.yml` 要加 volume 把 `limits.json` / `orders.json` / `history.json` 挂到宿主机（否则容器重建数据丢——之前已提醒过）。
+
+## 微信小程序生产化的现实建议
+- 海外免费域名（fly.dev / cfargotunnel.com / oracle 自带）**无法在微信后台配置为合法域名**（要备案）。
+- 若要做真支付：用**自有已备案域名**（国内或部分地区）+ 任意可达 VM（Oracle 免费即可），或最省心用**腾讯云轻量应用服务器（约 ¥99/年）**——小程序生态最顺、备案方便。
+
+要不要我直接帮你：① 给 `docker-compose.yml` 补上 volume（防数据丢）；② 写一份 `fly.toml` 或 Oracle + Cloudflare 固定隧道的部署步骤？告诉我选哪个平台，我按你的目标（纯 Web 测试 / 小程序生产）给可复制的命令。
+
+查交易：https://sepolia.basescan.org/address/0xB909FEbe977568aE963ade05E28Dab2423cE2a5E
