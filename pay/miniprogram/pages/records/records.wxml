@@ -1,4 +1,6 @@
 <view class="page">
+  <view class="title">我的记录</view>
+
   <view class="stat">
     <view class="item"><view class="num hl">{{freeRemaining}}</view><view class="cap">免费剩余(次)</view></view>
     <view class="item"><view class="num">{{purchased}}</view><view class="cap">已购(次)</view></view>
@@ -6,22 +8,29 @@
     <view class="item"><view class="num">{{remaining}}</view><view class="cap">剩余(次)</view></view>
   </view>
 
-  <button class="primary" bindtap="applyNew" wx:if="{{remaining > 0}}">用剩余次数申请新地址</button>
-  <button class="primary" bindtap="goBuy" wx:else>立即购买次数</button>
+  <button class="secondary" bindtap="updateAddr">更新全部地址</button>
+  <view class="link" bindtap="goBuy">立即购买次数</view>
 
-  <view class="title">我的地址</view>
-  <view class="empty" wx:if="{{addresses.length === 0}}">还没有地址，去购买或申请吧</view>
+  <view class="title">我的地址（按套餐）</view>
+  <view class="empty" wx:if="{{addresses.length === 0 && !netError}}">还没有购买记录，去购买或申请吧</view>
+  <view class="empty err" wx:if="{{netError}}">无法连接服务，服务地址可能已变更（远端重启后临时隧道地址会变）。请重新运行 start.sh 并刷新。</view>
   <view class="addr" wx:for="{{addresses}}" wx:key="room">
     <view class="addr-top">
       <view class="pkg">{{item.label || '套餐'}}</view>
-      <view class="badge {{item.valid ? 'ok' : 'bad'}}">{{item.valid ? '有效' : '已失效'}}</view>
+      <view class="badge {{item.badgeClass}}">{{item.badgeText}}</view>
     </view>
-    <view class="url" selectable="true">{{item.url}}</view>
+    <view class="meta">次数：额度 {{item.quota || item.roomLimit}} · 已用 {{item.roomUsed}} · 剩余 {{item.roomRemaining}}</view>
+    <view class="meta">单文件上限：{{item.maxFileText}}</view>
     <view class="meta">消费 {{item.priceText}} · {{item.createdAtText}}</view>
-    <view class="meta">额度 {{item.roomLimit}} 次 · 已用 {{item.roomUsed}} · 剩余 {{item.roomRemaining}}</view>
-    <view class="btn-row">
-      <button class="copy" size="mini" data-url="{{item.url}}" bindtap="copy">复制</button>
-      <button class="reapply" size="mini" wx:if="{{item.roomRemaining > 0}}" bindtap="reapply">更新地址</button>
-    </view>
+    <block wx:if="{{item.usable}}">
+      <view class="url" selectable="true">{{item.url}}</view>
+      <view class="btn-row">
+        <button class="copy" size="mini" data-url="{{item.url}}" bindtap="copy">复制</button>
+        <button class="reapply" size="mini" bindtap="updateAddr">更新地址</button>
+      </view>
+    </block>
+    <view class="hint" wx:else>{{item.hint}}</view>
   </view>
+
+  <view class="link footer" bindtap="goHome">返回首页</view>
 </view>

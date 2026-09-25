@@ -96,9 +96,10 @@ MAIN_BASE_URL="${PAY_MAIN_URL:-http://localhost:$MAIN_PORT}"
 # 主服务公网地址: 仅用于生成房间链接(对外可达); 隧道地址优先, 否则回退到主服务 BASE_URL
 MAIN_PUBLIC_BASE_URL="${PUBLIC_URL:-$BASE_URL}"
 
-# ---- 可选: 给 pay 服务也开一条隧道(供微信发货推送回调; 默认随 TUNNEL) ----
-# 注意: 临时隧道每次重启都变, 仅适合联调; 生产请在 .env 用固定域名填 PAY_NOTIFY_BASE_URL。
-PAY_TUNNEL="${PAY_TUNNEL:-$TUNNEL}"
+# ---- 不再单独给 pay 开隧道 ----
+# 两条 cloudflared quick 隧道并发常被关连接(ERR_CONNECTION_CLOSED)。pay 现已通过主隧道 /pay
+# 反代到本机, 无需第二条隧道。如确需独立隧道, 把这行改成 PAY_TUNNEL="$TUNNEL" 即可。
+PAY_TUNNEL=0
 CFD_PAY_PID=""
 PAY_PUBLIC_URL=""
 if [ "$PAY_TUNNEL" = "1" ] && command -v cloudflared >/dev/null 2>&1; then
@@ -115,21 +116,16 @@ if [ "$PAY_TUNNEL" = "1" ] && command -v cloudflared >/dev/null 2>&1; then
     || echo "[start] 警告: 未获取到 pay 隧道地址"
 fi
 # 微信发货推送回调地址: 命令行/隧道优先, 否则沿用 .env 里的 PAY_NOTIFY_BASE_URL
-PAY_NOTIFY_BASE_URL="${PAY_NOTIFY_BASE_URL:-$PAY_PUBLIC_URL}"
+# 注意: pay 已通过主隧道 /pay 反代, 这里把推送地址也指到主隧道 /pay(无隧道时回退到原逻辑)。
+PAY_NOTIFY_BASE_URL="${PAY_NOTIFY_BASE_URL:-${PUBLIC_URL:+$PUBLIC_URL/pay}}"
 
-# ---- 自动同步小程序 apiBase(pay/miniprogram/config.js) ----
-# 临时隧道地址每次都变, 这里把 pay 服务当前对外地址写进小程序配置, 免去手动修改。
-# 有隧道用隧道地址; 无隧道(本地调试)写 http://localhost:$PAY_PORT(WSL2 端口转发, 开发者工具可用)。
-MP_CONFIG="$PAY_DIR/miniprogram/config.js"
-if [ -f "$MP_CONFIG" ]; then
-  MP_API_BASE="${PAY_PUBLIC_URL:-http://localhost:$PAY_PORT}"
-  sed -i "s|apiBase:[[:space:]]*['\"][^'\"]*['\"]|apiBase: '$MP_API_BASE'|" "$MP_CONFIG"
-  echo "[start] 小程序 apiBase 已更新 -> $MP_API_BASE"
-fi
+# ---- 小程序 apiBase 不再写进 config.js ----
+# 现在 apiBase 由 pay 服务运行时通过 /config.json 暴露(见 server.js), 小程序启动自动拉取,
+# start.sh 只需把当前隧道地址传给 pay(上面的 MP_API_BASE 环境变量)即可。无需改写 config.js、无需重编译。
 
 echo "[start] 支付服务 PAY_PORT=$PAY_PORT  MAIN_BASE_URL=$MAIN_BASE_URL  PAY_NOTIFY_BASE_URL=${PAY_NOTIFY_BASE_URL:-'(未设置)'}"
 cd "$PAY_DIR"
-MAIN_BASE_URL="$MAIN_BASE_URL" MAIN_PUBLIC_BASE_URL="$MAIN_PUBLIC_BASE_URL" MAIN_PROVISION_TOKEN="$PROVISION_TOKEN" PAY_PORT="$PAY_PORT" PAY_NOTIFY_BASE_URL="$PAY_NOTIFY_BASE_URL" node server.js &
+MAIN_BASE_URL="$MAIN_BASE_URL" MAIN_PUBLIC_BASE_URL="$MAIN_PUBLIC_BASE_URL" MAIN_PROVISION_TOKEN="$PROVISION_TOKEN" PAY_PORT="$PAY_PORT" PAY_NOTIFY_BASE_URL="$PAY_NOTIFY_BASE_URL" MP_API_BASE="$MP_API_BASE" node server.js &
 PAY_PID=$!
 
 cleanup() {

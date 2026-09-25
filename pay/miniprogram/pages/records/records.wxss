@@ -7,6 +7,7 @@
 .primary { background: #07c160; color: #fff; border-radius: 16rpx; font-size: 30rpx; margin-bottom: 32rpx; }
 .title { font-size: 28rpx; font-weight: 600; color: #374151; margin: 8rpx 0 16rpx; }
 .empty { color: #9ca3af; font-size: 26rpx; text-align: center; padding: 40rpx 0; }
+.empty.err { color: #ef4444; font-weight: 600; }
 .addr { background: #fff; border-radius: 16rpx; padding: 24rpx; margin-bottom: 18rpx; box-shadow: 0 4rpx 16rpx rgba(0,0,0,.05); }
 .addr-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10rpx; }
 .pkg { font-size: 28rpx; font-weight: 700; color: #111827; }
@@ -18,3 +19,13 @@
 .btn-row { display: flex; gap: 16rpx; margin-top: 10rpx; }
 .copy { background: #eff6ff; color: #2563eb; }
 .reapply { background: #fff7e6; color: #d97706; }
+.card { background: #fff; border-radius: 16rpx; padding: 32rpx; margin-bottom: 32rpx; box-shadow: 0 2rpx 12rpx rgba(0,0,0,.05); }
+.label { color: #6b7280; font-size: 26rpx; margin-bottom: 12rpx; }
+.hint { color: #9ca3af; font-size: 24rpx; margin-top: 24rpx; line-height: 1.6; }
+
+/* 对齐网页版: 更新全部地址(描边按钮) + 立即购买次数(文字链接按钮) */
+.secondary { background: #fff; color: #374151; border: 1rpx solid #d1d5db; border-radius: 16rpx; font-size: 30rpx; margin-bottom: 18rpx; }
+.link { background: #f3f4f6; color: #374151; border-radius: 16rpx; font-size: 28rpx; text-align: center; padding: 22rpx 0; margin-bottom: 8rpx; }
+.link.footer { margin-top: 32rpx; }
+/* 地址卡片内的链接展示, 与网页版一致(浅底描边 + 可长按选择) */
+.addr .url { background: #f8fafc; border: 1rpx solid #e5e7eb; border-radius: 12rpx; padding: 16rpx; margin-top: 14rpx; }

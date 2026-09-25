@@ -5,7 +5,7 @@
     <view class="intro-row"><text>计费方式</text><text class="v">每 1 条消息 / 1 次传输 = 1 次</text></view>
     <view class="intro-row"><text>新用户赠送</text><text class="v hl">免费 {{freeUses}} 次体验</text></view>
     <view class="intro-row"><text>使用方式</text><text class="v">购买后获分享链接, 发给对方即可互传文件/图片/视频/音频</text></view>
-    <view class="intro-tip">次数用尽链接自动失效；未用完可在「我的记录」用剩余次数重新申请新地址。不同套餐对应不同的单文件大小上限。</view>
+    <view class="intro-tip">次数用尽链接自动失效；未用完可在「我的记录」点「更新全部地址」刷新链接继续使用。不同套餐对应不同的单文件大小上限。</view>
   </view>
 
   <view class="pkg-title">选择套餐</view>

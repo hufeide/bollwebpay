@@ -8,12 +8,6 @@
     </view>
     <view class="hint" wx:if="{{remainingReady && remaining >= 0}}">账户剩余 {{remaining}} 次；每条消息 / 每次传输消耗 1 次（申请地址本身不消耗）。</view>
     <view class="hint" wx:if="{{maxFileText}}">当前套餐单文件上限：{{maxFileText}}</view>
-
-    <view class="card reapply" wx:if="{{remainingReady && remaining > 0}}">
-      <view class="label">剩余次数：{{remaining}} 次</view>
-      <view class="hint">旧地址失效、或想换一个新地址时，可用剩余次数重新申请。</view>
-      <button class="copy" bindtap="reapply">用剩余次数重新申请地址</button>
-    </view>
   </block>
 
   <block wx:elif="{{status === 'provision_failed'}}">

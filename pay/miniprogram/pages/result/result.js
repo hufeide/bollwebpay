@@ -1,4 +1,4 @@
-const { apiBase } = require('../../config.js');
+const { getApiBase } = require('../../config.js');
 
 function fmtSize(bytes) {
   if (!bytes) return '';
@@ -33,7 +33,7 @@ Page({
   poll() {
     const tick = () => {
       wx.request({
-        url: apiBase + '/api/order/' + this.orderId,
+        url: getApiBase() + '/api/order/' + this.orderId,
         success: (res) => {
           const d = res.data || {};
           this.setData({ status: d.status, url: d.url, room: d.room, limit: d.limit, count: d.count, maxFileBytes: d.maxFileBytes || 0, maxFileText: fmtSize(d.maxFileBytes || 0) });
@@ -55,7 +55,7 @@ Page({
   refreshRemaining() {
     if (!this.openid) return;
     wx.request({
-      url: apiBase + '/api/user/' + this.openid,
+      url: getApiBase() + '/api/user/' + this.openid,
       success: (res) => {
         const d = res.data || {};
         const rem = (typeof d.remaining === 'number' && !isNaN(d.remaining)) ? d.remaining : 0;
@@ -66,34 +66,6 @@ Page({
   copy() {
     if (!this.data.url) return;
     wx.setClipboardData({ data: this.data.url });
-  },
-  // 用剩余次数重新申请一个地址
-  reapply() {
-    if (this.data.remaining <= 0) {
-      wx.showToast({ title: '次数已用完, 请先购买', icon: 'none' });
-      return;
-    }
-    wx.showLoading({ title: '申请中' });
-    wx.request({
-      url: apiBase + '/api/room/new',
-      method: 'POST',
-      data: { openid: this.openid },
-      success: (res) => {
-        const d = res.data || {};
-        wx.hideLoading();
-        if (d.url) {
-          const rem = (typeof d.remaining === 'number' && !isNaN(d.remaining)) ? d.remaining : this.data.remaining;
-          this.setData({ url: d.url, room: d.room, remaining: rem, remainingReady: true });
-          wx.showToast({ title: '已生成新地址', icon: 'success' });
-        } else {
-          wx.showToast({ title: d.error || '申请失败', icon: 'none' });
-        }
-      },
-      fail: () => {
-        wx.hideLoading();
-        wx.showToast({ title: '网络错误', icon: 'none' });
-      },
-    });
   },
   reopen() {
     wx.reLaunch({ url: '/pages/home/home' });

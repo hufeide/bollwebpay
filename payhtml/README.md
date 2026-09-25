@@ -122,7 +122,7 @@ npm run dev:node              # 或 node src/server.node.js, 默认 http://local
 
 
 cd payhtml
-cp .env.example .env          # 填 PAY_TO / MAIN_BASE_URL / MAIN_PROVISION_TOKEN
+MAIN_PROVISION_TOKEN
 npm run dev:node              # 默认 http://localhost:8787
 # 或 PORT=9000 node src/server.node.js
 http://localhost:8787

@@ -1,4 +1,4 @@
-const { apiBase } = require('../../config.js');
+const { getApiBase } = require('../../config.js');
 
 // 用 code 换 openid 并缓存(体验/记录/重申请都要用)
 function getOpenid() {
@@ -8,7 +8,7 @@ function getOpenid() {
     wx.login({
       success: ({ code }) => {
         wx.request({
-          url: apiBase + '/api/login',
+          url: getApiBase() + '/api/login',
           method: 'POST',
           data: { code },
           success: (res) => {
@@ -24,6 +24,14 @@ function getOpenid() {
   });
 }
 
+// 设备标识: 持久化在小程序本地存储, 用于「每台设备」限制免费体验次数(对齐网页版 getDeviceId,
+// 防换账号白嫖)。每个设备只生成一次。
+function getDeviceId() {
+  let id = wx.getStorageSync('bw_device');
+  if (!id) { id = 'd' + Math.random().toString(36).slice(2) + Date.now().toString(36); wx.setStorageSync('bw_device', id); }
+  return id;
+}
+
 Page({
   data: {
     pricePerUse: 0.10,
@@ -36,9 +44,9 @@ Page({
     wx.showLoading({ title: '准备体验' });
     getOpenid().then((openid) => {
       wx.request({
-        url: apiBase + '/api/room/new',
+        url: getApiBase() + '/api/room/new',
         method: 'POST',
-        data: { openid },
+        data: { openid, deviceId: getDeviceId() },
         success: (res) => {
           const d = res.data || {};
           if (d.url) {

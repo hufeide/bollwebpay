@@ -17,7 +17,7 @@
 
   <button class="primary" bindtap="experience">免费体验（赠 {{freeUses}} 次）</button>
   <button class="secondary" bindtap="onBuy">购买次数</button>
-  <button class="link" bindtap="onRecords">我的记录 / 剩余次数</button>
+  <button class="link" bindtap="onRecords">我的记录</button>
 
   <view class="hint">体验与正式使用一致：把生成的链接发给对方，打开即进入同一加密房间，可互传文件/图片/视频/音频。</view>
 </view>

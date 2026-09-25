@@ -126,8 +126,38 @@ const MIME = {
   '.json': 'application/json; charset=utf-8',
   '.ico': 'image/x-icon',
 };
+// ---- 反代 pay 服务(小程序支付/记录接口) ----
+// 不另开第二条 cloudflared 隧道(两条 quick 隧道并发常被关连接 -> ERR_CONNECTION_CLOSED),
+// 而是把小程序对 pay 的请求经「主隧道」转发到本机 pay(:8081)。
+// 小程序侧 apiBase = 主隧道地址 + "/pay", 这里剥离 /pay 前缀后转发。
+const PAY_PROXY_PORT = Number(process.env.PAY_PROXY_PORT) || 8081;
+function proxyToPay(req, res, rawUrl) {
+  const target = rawUrl.startsWith('/pay') ? rawUrl.slice(4) : rawUrl;
+  const options = {
+    host: '127.0.0.1',
+    port: PAY_PROXY_PORT,
+    path: target || '/',
+    method: req.method,
+    headers: { ...req.headers, host: '127.0.0.1:' + PAY_PROXY_PORT },
+  };
+  const p = http.request(options, (pres) => {
+    res.writeHead(pres.statusCode || 502, pres.headers);
+    pres.pipe(res);
+  });
+  p.on('error', () => {
+    if (!res.headersSent) {
+      res.writeHead(502, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'pay upstream unavailable' }));
+    }
+  });
+  req.pipe(p);
+}
+
 const server = http.createServer((req, res) => {
-  const urlPath = decodeURIComponent((req.url || '/').split('?')[0]);
+  const rawUrl = req.url || '/';
+  const urlPath = decodeURIComponent(rawUrl.split('?')[0]);
+  // 小程序支付/记录接口: /pay/* -> 本机 pay 服务(避免第二条隧道被关连接)
+  if (urlPath === '/pay' || urlPath.startsWith('/pay/')) { return proxyToPay(req, res, rawUrl); }
   if (urlPath.startsWith('/api/')) { handleApi(req, res, urlPath); return; }
   let fp = urlPath === '/' ? '/index.html' : urlPath;
   const safe = path.normalize(fp).replace(/^(\.\.[/\\])+/, '');

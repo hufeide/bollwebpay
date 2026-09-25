@@ -357,3 +357,10 @@ TUNNEL=0 BASE_URL=https://你的域名 MAIN_BASE_URL=https://你的域名 PAY_NO
 要不要我直接帮你：① 给 `docker-compose.yml` 补上 volume（防数据丢）；② 写一份 `fly.toml` 或 Oracle + Cloudflare 固定隧道的部署步骤？告诉我选哪个平台，我按你的目标（纯 Web 测试 / 小程序生产）给可复制的命令。
 
 查交易：https://sepolia.basescan.org/address/0xB909FEbe977568aE963ade05E28Dab2423cE2a5E
+
+
+
+pkill -f 'server.js'; pkill -f cloudflared; sleep 2
+cd ~/workspace/bollwebpay
+setsid ./start.sh > /tmp/boll_start.log 2>&1 < /dev/null &
+curl -s http://localhost:8080/pay/api/user/test 

@@ -1,4 +1,4 @@
-const { apiBase } = require('../../config.js');
+const { getApiBase } = require('../../config.js');
 
 // iOS 需微信客户端 >= 8.0.68 才支持虚拟支付
 function checkIosMinVersion() {
@@ -28,7 +28,7 @@ function getOpenid() {
     wx.login({
       success: ({ code }) => {
         wx.request({
-          url: apiBase + '/api/login',
+          url: getApiBase() + '/api/login',
           method: 'POST',
           data: { code },
           success: (res) => {
@@ -64,7 +64,7 @@ Page({
   },
   loadPackages() {
     wx.request({
-      url: apiBase + '/api/packages',
+      url: getApiBase() + '/api/packages',
       success: (res) => {
         const list = (res.data && res.data.packages) || [];
         const pkgs = list.length ? list : FALLBACK_PACKAGES;
@@ -93,7 +93,7 @@ Page({
       wx.login({
         success: ({ code }) => {
           wx.request({
-            url: apiBase + '/api/order',
+            url: getApiBase() + '/api/order',
             method: 'POST',
             data: { code, packageId: pkg.id, openid },
             success: (res) => {
