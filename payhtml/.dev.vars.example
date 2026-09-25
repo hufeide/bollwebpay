@@ -1,0 +1,23 @@
+# 本地开发 / 部署用环境变量示例。复制为 .dev.vars(本地) 或用 wrangler secret / 变量设置(线上)。
+# 用法:
+#   本地: cp .dev.vars.example .dev.vars 并填写后 `npm run dev`
+#   线上: wrangler vars set NETWORK base-sepolia  (或 wrangler secret put ...)
+
+# 收款钱包地址(必须): 用户付的 USDC 会进这个地址。用你自己的 EVM 地址(如 MetaMask 地址)。
+PAY_TO=0xB909FEbe977568aE963ade05E28Dab2423cE2a5E
+
+# 网络: base-sepolia(测试网, 默认, 适合演示) 或 base(主网, 真实收款)
+NETWORK=base-sepolia
+
+# x402 facilitator 地址(校验+结算链上付款的服务)。默认社区 facilitator, 可用 Coinbase 的。
+FACILITATOR_URL=https://x402.org/facilitator
+
+# 主服务(bollwebpay/server.js, WebRTC 信令 + /api/provision)地址
+MAIN_BASE_URL=https://你的cloudflare域名或主服务地址
+# 主服务 /api/provision 需要的令牌, 必须与主服务启动时 PROVISION_TOKEN 一致
+MAIN_PROVISION_TOKEN=你的强随机令牌
+# 主服务生成分享链接时的公网基础地址(通常同 MAIN_BASE_URL)
+MAIN_PUBLIC_BASE_URL=https://你的cloudflare域名或主服务地址
+
+# 测试模式: 设为 1 则跳过真实链上支付, 直接分发房间链接(无需钱包/资金)
+MOCK=0

@@ -1,0 +1,16 @@
+{
+  "name": "bollweb-pay",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "bollweb 网页支付 — 用 bolloon 的 x402 去中心化支付(USDC/Base) 替代小程序微信支付, 部署在 Cloudflare",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "dev:node": "node src/server.node.js",
+    "start:node": "node src/server.node.js"
+  },
+  "devDependencies": {
+    "wrangler": "^3.99.0"
+  }
+}

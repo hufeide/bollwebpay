@@ -1,0 +1,14 @@
+name = "bollweb-pay"
+main = "src/worker.js"
+compatibility_date = "2025-04-01"
+
+# 前端静态资源(public/) 与 API(worker.js) 同一份部署
+[assets]
+directory = "public"
+binding = "ASSETS"
+not_found_handling = "single-page-application"
+
+# 账户 / 订单 / 地址 持久化
+[[kv_namespaces]]
+binding = "PAYHTML_KV"
+id = "REPLACE_WITH_YOUR_KV_ID"   # 用 `wrangler kv namespace create PAYHTML_KV` 生成后填入

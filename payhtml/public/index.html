@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>bollweb 传输助手 · 次数购买</title>
+  <link rel="stylesheet" href="./style.css" />
+</head>
+<body>
+  <div class="app">
+    <header class="topbar">
+      <div class="brand">📦 bollweb 传输助手</div>
+      <button id="walletBtn" class="wallet-btn">连接钱包</button>
+    </header>
+
+    <!-- 首页 -->
+    <section id="page-home" class="page">
+      <div class="logo">📦</div>
+      <div class="title">bollweb 传输助手</div>
+      <div class="sub">通过分享链接，安全互传文件、图片、视频、音频。端到端加密，服务器无法读取内容。</div>
+
+      <div class="preview">
+        <div class="prev-bar"><span>传输助手</span><span class="prev-me">我</span></div>
+        <div class="prev-body">
+          <div class="bubble them">发来的设计稿.png</div>
+          <div class="bubble me">收到，这是录屏.mp4</div>
+          <div class="bubble them">📄 合同.pdf · 2.3MB</div>
+          <div class="bubble me">🎵 语音.mp3</div>
+        </div>
+        <div class="prev-input">输入消息，回车发送 📎</div>
+      </div>
+
+      <button class="primary" id="btnExperience">免费体验（赠 <span id="freeUses">10</span> 次）</button>
+      <button class="secondary" id="btnBuy">购买次数</button>
+      <button class="link" id="btnRecords">我的记录 / 剩余次数</button>
+
+      <div class="hint">体验与正式使用一致：把生成的链接发给对方，打开即进入同一加密房间，可互传文件/图片/视频/音频。</div>
+    </section>
+
+    <!-- 购买 -->
+    <section id="page-buy" class="page hidden">
+      <div class="title">购买使用次数</div>
+      <div class="intro">
+        <div class="intro-row"><span>计费方式</span><span class="v">每 1 条消息 / 1 次传输 = 1 次</span></div>
+        <div class="intro-row"><span>新用户赠送</span><span class="v hl">免费 <span id="freeUses2">10</span> 次体验</span></div>
+        <div class="intro-row"><span>使用方式</span><span class="v">购买后获分享链接, 发给对方即可互传</span></div>
+        <div class="intro-tip">次数用尽链接自动失效；不同套餐对应不同的单文件大小上限。支付使用去中心化 x402（浏览器钱包直接付 USDC，无需微信）。</div>
+      </div>
+
+      <div class="pkg-title">选择套餐</div>
+      <div id="pkgList"></div>
+
+      <label class="mock-toggle"><input type="checkbox" id="mockChk" /> 测试模式（不真正付币，直接分发链接）</label>
+
+      <button class="buy" id="btnPay">去支付 <span id="selPrice"></span></button>
+      <div class="hint" id="payHint">支付成功后自动跳转，在结果页复制分享链接发给对方即可。</div>
+    </section>
+
+    <!-- 结果 -->
+    <section id="page-result" class="page hidden">
+      <div id="resultPending" class="pending">处理中…<div class="hint">正在确认支付结果，请稍候（不要关闭页面）。</div></div>
+      <div id="resultBody" class="hidden">
+        <div class="ok" id="resultOk">✅ 支付成功</div>
+        <div class="card">
+          <div class="label">你的专属链接</div>
+          <div class="url" id="resultUrl"></div>
+          <button class="copy" id="btnCopy">复制链接</button>
+        </div>
+        <div class="hint" id="resultRemaining"></div>
+        <div class="hint" id="resultLimit"></div>
+        <div class="card reapply" id="reapplyCard">
+          <div class="label">剩余次数：<span id="reapplyRemaining"></span> 次</div>
+          <div class="hint">旧地址失效、或想换一个新地址时，可用剩余次数重新申请。</div>
+          <button class="copy" id="btnReapply">用剩余次数重新申请地址</button>
+        </div>
+      </div>
+      <button class="link" id="btnHome2">返回首页</button>
+    </section>
+
+    <!-- 记录 -->
+    <section id="page-records" class="page hidden">
+      <div class="stat">
+        <div class="item"><div class="num hl" id="recFree">0</div><div class="cap">免费剩余(次)</div></div>
+        <div class="item"><div class="num" id="recPurchased">0</div><div class="cap">已购(次)</div></div>
+        <div class="item"><div class="num" id="recUsed">0</div><div class="cap">已用(次)</div></div>
+        <div class="item"><div class="num" id="recRemaining">0</div><div class="cap">剩余(次)</div></div>
+      </div>
+
+      <button class="primary" id="btnApplyNew" >用剩余次数申请新地址</button>
+      <button class="link" id="btnBuy2">立即购买次数</button>
+
+      <div class="title">我的地址</div>
+      <div class="empty" id="recEmpty">还没有地址，去购买或申请吧</div>
+      <div id="addrList"></div>
+      <button class="link" id="btnHome3">返回首页</button>
+    </section>
+
+    <div id="toast" class="toast hidden"></div>
+  </div>
+
+  <script type="module" src="./app.js"></script>
+</body>
+</html>
