@@ -136,4 +136,11 @@ Page({
       });
     });
   },
+  // 转发给好友
+  onShareAppMessage() {
+    return {
+      title: 'bollweb 传输助手 - 跨设备免安装传文件',
+      path: '/pages/home/home',
+    };
+  },
 });

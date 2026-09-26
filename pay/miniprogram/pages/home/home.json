@@ -1,3 +1,5 @@
 {
-  "navigationBarTitleText": "bollweb 传输助手"
+  "navigationBarTitleText": "bollweb 传输助手",
+  "enableShareAppMessage": true,
+  "enableShareTimeline": true
 }

@@ -10,7 +10,7 @@
 const CONFIG_JSON_URL = 'http://localhost:8081/config.json';
 // apiBase: 兜底地址。仅当远程配置(localhost /config.json)拉取失败时使用, 建议填你的固定域名/命名隧道,
 // 以便真机在不依赖引导 JSON 时也能工作。此处给本地直连作为开发兜底。
-const FALLBACK_API_BASE = 'http://localhost:8081';
+const FALLBACK_API_BASE = 'https://finaitech.dpdns.org/pay';
 
 // 运行时获取当前 apiBase 优先级:
 //   ① 开发者工具 Storage 里手动设的 apiBase(隧道一变, 改这里即可, 免重编译, 仅开发用)

@@ -63,4 +63,17 @@ Page({
   },
   onBuy() { wx.navigateTo({ url: '/pages/index/index' }); },
   onRecords() { wx.navigateTo({ url: '/pages/records/records' }); },
+  // 转发给好友
+  onShareAppMessage() {
+    return {
+      title: 'bollweb 传输助手 - 跨设备免安装传文件',
+      path: '/pages/home/home',
+    };
+  },
+  // 分享到朋友圈
+  onShareTimeline() {
+    return {
+      title: 'bollweb 传输助手 - 跨设备免安装传文件',
+    };
+  },
 });

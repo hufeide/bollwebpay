@@ -364,3 +364,7 @@ pkill -f 'server.js'; pkill -f cloudflared; sleep 2
 cd ~/workspace/bollwebpay
 setsid ./start.sh > /tmp/boll_start.log 2>&1 < /dev/null &
 curl -s http://localhost:8080/pay/api/user/test 
+
+
+
+cd /home/fei/workspace/bollwebpay; nohup ./start.sh > /tmp/start.out 2>&1 & echo "pid $!"; sleep 15; echo "=== start.out 关键行 ==="; grep -E "主服务|命名隧道公网|PAY_NOTIFY|支付服务" /tmp/start.out; echo "=== 隧道连接 ==="; grep -c "Registered tunnel connection" /tmp/cfd_named.out 2>/dev/null; echo "=== 公网验证 ==="; curl -sS -m 20 -o /dev/null -w "主页 HTTP %{http_code}\n" https://finaitech.dpdns.org/; curl -sS -m 20 -o /dev/null -w "/pay HTTP %{http_code}\n" https://finaitech.dpdns.org/pay

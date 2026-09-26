@@ -4,9 +4,10 @@
 #       cloudflared、捕获动态公网地址, 再喂给主服务(生成公网房间链接)与 pay 服务。
 #
 # 用法:
-#   ./start.sh                       # 自动检测 cloudflared 并开启隧道(若已安装)
+#   ./start.sh                       # 自动检测: 有命名隧道配置则 named, 否则临时隧道, 否则关闭
+#   TUNNEL=named ./start.sh          # 强制使用命名隧道(固定域名, 见 ~/.cloudflared/config.yml)
+#   TUNNEL=1 ./start.sh              # 强制开临时隧道(动态地址)
 #   TUNNEL=0 ./start.sh              # 关闭隧道(本地/已有固定域名时用)
-#   TUNNEL=1 ./start.sh              # 强制开隧道(无 cloudflared 会提示)
 #   PROVISION_TOKEN=xxx ./start.sh   # 命令行变量优先于 pay/.env
 #
 # 说明:
@@ -55,11 +56,23 @@ fi
 BASE_URL="${BASE_URL:-${MAIN_BASE_URL:-http://localhost:$MAIN_PORT}}"
 PAY_PORT="${PAY_PORT:-8081}"
 
-# ---- cloudflared 临时隧道(动态公网地址, 不写 .env) ----
-# TUNNEL: auto(默认, 检测 cloudflared) | 1(强制) | 0(关闭)
+# ---- Cloudflare 隧道 ----
+# TUNNEL: auto(默认) | named(已配置命名隧道+固定域名) | 1(临时动态隧道) | 0(关闭)
+# 命名隧道: 依赖 ~/.cloudflared/config.yml(由 setup_named_tunnel.sh 生成), 公网地址固定为
+#           https://$CF_HOST, 房间链接不会再随重启变化。
+CF_DIR="${CF_DIR:-$HOME/.cloudflared}"
+CF_CONFIG="${CF_CONFIG:-$CF_DIR/config.yml}"
+CF_NAME="${CF_NAME:-bollweb}"
+CF_HOST="${CF_HOST:-finaitech.dpdns.org}"
 TUNNEL="${TUNNEL:-auto}"
 if [ "$TUNNEL" = "auto" ]; then
-  command -v cloudflared >/dev/null 2>&1 && TUNNEL=1 || TUNNEL=0
+  if [ -f "$CF_CONFIG" ] && command -v cloudflared >/dev/null 2>&1; then
+    TUNNEL=named
+  elif command -v cloudflared >/dev/null 2>&1; then
+    TUNNEL=1
+  else
+    TUNNEL=0
+  fi
 fi
 CFD_PID=""
 PUBLIC_URL=""
@@ -69,9 +82,24 @@ echo "[start] 主服务  PORT=$MAIN_PORT  BASE_URL=$BASE_URL"
 PROVISION_TOKEN="$PROVISION_TOKEN" BASE_URL="$BASE_URL" PORT="$MAIN_PORT" REQUIRE_PAID_ROOM="${REQUIRE_PAID_ROOM:-1}" node "$ROOT/server.js" &
 MAIN_PID=$!
 
-if [ "$TUNNEL" = "1" ]; then
+if [ "$TUNNEL" = "named" ]; then
   if command -v cloudflared >/dev/null 2>&1; then
-    echo "[start] 启动 cloudflared 隧道 -> http://localhost:$MAIN_PORT"
+    echo "[start] 启动命名隧道($CF_NAME) -> $CF_HOST"
+    rm -f "$ROOT/.cfd_named.log"
+    cloudflared tunnel --config "$CF_CONFIG" run >/tmp/cfd_named.out 2>&1 &
+    CFD_PID=$!
+    for _i in $(seq 1 25); do
+      grep -q "Registered tunnel connection" /tmp/cfd_named.out 2>/dev/null && break
+      sleep 1
+    done
+    PUBLIC_URL="https://$CF_HOST"
+    echo "[start] 命名隧道公网地址: $PUBLIC_URL"
+  else
+    echo "[start] 未找到 cloudflared 命令, 命名隧道启动失败"
+  fi
+elif [ "$TUNNEL" = "1" ]; then
+  if command -v cloudflared >/dev/null 2>&1; then
+    echo "[start] 启动 cloudflared 临时隧道 -> http://localhost:$MAIN_PORT"
     rm -f "$ROOT/.cfd.log"
     cloudflared tunnel --url "http://localhost:$MAIN_PORT" --logfile "$ROOT/.cfd.log" >/tmp/cfd.out 2>&1 &
     CFD_PID=$!

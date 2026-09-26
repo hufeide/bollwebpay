@@ -4,12 +4,12 @@
 #       cloudflared、捕获动态公网地址, 再喂给主服务(生成公网房间链接)与 pay 服务。
 #
 # 用法:
-#   ./start.sh                       # 自动检测 cloudflared 并开启隧道(若已安装)
-#   TUNNEL=0 ./start.sh              # 关闭隧道(本地/已有固定域名时用)
-#   TUNNEL=1 ./start.sh              # 强制开隧道(无 cloudflared 会提示)
-#   PROVISION_TOKEN=xxx ./start.sh   # 命令行变量优先于 pay/.env
-#   PAYHTML_PORT=8787 ./start.sh      # 网页支付服务(payhtml)端口, 默认 8787
-#   PAYHTML_TUNNEL=1 ./start.sh       # 强制给网页购买页也开隧道(默认随 TUNNEL)
+#   ./start_onlinepay.sh                    # 自动检测: 有命名隧道配置则 named, 否则临时隧道, 否则关闭
+#   TUNNEL=named ./start_onlinepay.sh       # 强制使用命名隧道(固定域名, 见 ~/.cloudflared/config.yml)
+#   TUNNEL=1 ./start_onlinepay.sh           # 强制开临时隧道(动态地址)
+#   TUNNEL=0 ./start_onlinepay.sh           # 关闭隧道(本地/已有固定域名时用)
+#   PROVISION_TOKEN=xxx ./start_onlinepay.sh# 命令行变量优先于 pay/.env
+#   PAYHTML_PORT=8787 ./start_onlinepay.sh  # 网页支付服务(payhtml)端口, 默认 8787
 #
 # 说明:
 #   - 主服务的 PROVISION_TOKEN 会持久化到 .provision_token, 避免重启后已付费房间失效。
@@ -69,11 +69,24 @@ NETWORK="${NETWORK:-$(read_env_var "$PAYHTML_DIR/.env" NETWORK)}"
 FACILITATOR_URL="${FACILITATOR_URL:-$(read_env_var "$PAYHTML_DIR/.env" FACILITATOR_URL)}"
 PAYHTML_MOCK="${PAYHTML_MOCK:-$(read_env_var "$PAYHTML_DIR/.env" MOCK)}"
 
-# ---- cloudflared 临时隧道(动态公网地址, 不写 .env) ----
-# TUNNEL: auto(默认, 检测 cloudflared) | 1(强制) | 0(关闭)
+# ---- Cloudflare 隧道 ----
+# TUNNEL: auto(默认) | named(已配置命名隧道+固定域名) | 1(临时动态隧道) | 0(关闭)
+# 命名隧道: 依赖 ~/.cloudflared/config.yml(由 setup_named_tunnel.sh 生成), 同时暴露
+#           finaitech.dpdns.org(->8080) 与 pay.finaitech.dpdns.org(->8787)。
+CF_DIR="${CF_DIR:-$HOME/.cloudflared}"
+CF_CONFIG="${CF_CONFIG:-$CF_DIR/config.yml}"
+CF_NAME="${CF_NAME:-bollweb}"
+CF_HOST="${CF_HOST:-finaitech.dpdns.org}"
+CF_PAYHTML_HOST="${CF_PAYHTML_HOST:-pay.finaitech.dpdns.org}"
 TUNNEL="${TUNNEL:-auto}"
 if [ "$TUNNEL" = "auto" ]; then
-  command -v cloudflared >/dev/null 2>&1 && TUNNEL=1 || TUNNEL=0
+  if [ -f "$CF_CONFIG" ] && command -v cloudflared >/dev/null 2>&1; then
+    TUNNEL=named
+  elif command -v cloudflared >/dev/null 2>&1; then
+    TUNNEL=1
+  else
+    TUNNEL=0
+  fi
 fi
 CFD_PID=""
 PUBLIC_URL=""
@@ -83,9 +96,25 @@ echo "[start] 主服务  PORT=$MAIN_PORT  BASE_URL=$BASE_URL"
 PROVISION_TOKEN="$PROVISION_TOKEN" BASE_URL="$BASE_URL" PORT="$MAIN_PORT" REQUIRE_PAID_ROOM="${REQUIRE_PAID_ROOM:-1}" node "$ROOT/server.js" &
 MAIN_PID=$!
 
-if [ "$TUNNEL" = "1" ]; then
+if [ "$TUNNEL" = "named" ]; then
   if command -v cloudflared >/dev/null 2>&1; then
-    echo "[start] 启动 cloudflared 隧道 -> http://localhost:$MAIN_PORT"
+    echo "[start] 启动命名隧道($CF_NAME) -> $CF_HOST (含 $CF_PAYHTML_HOST -> :$PAYHTML_PORT)"
+    rm -f "$ROOT/.cfd_named.log"
+    cloudflared tunnel --config "$CF_CONFIG" run >/tmp/cfd_named.out 2>&1 &
+    CFD_PID=$!
+    for _i in $(seq 1 25); do
+      grep -q "Registered tunnel connection" /tmp/cfd_named.out 2>/dev/null && break
+      sleep 1
+    done
+    PUBLIC_URL="https://$CF_HOST"
+    PAYHTML_PUBLIC_URL="https://$CF_PAYHTML_HOST"
+    echo "[start] 命名隧道公网地址: $PUBLIC_URL  (payhtml: $PAYHTML_PUBLIC_URL)"
+  else
+    echo "[start] 未找到 cloudflared 命令, 命名隧道启动失败"
+  fi
+elif [ "$TUNNEL" = "1" ]; then
+  if command -v cloudflared >/dev/null 2>&1; then
+    echo "[start] 启动 cloudflared 临时隧道 -> http://localhost:$MAIN_PORT"
     rm -f "$ROOT/.cfd.log"
     cloudflared tunnel --url "http://localhost:$MAIN_PORT" --logfile "$ROOT/.cfd.log" >/tmp/cfd.out 2>&1 &
     CFD_PID=$!
@@ -103,6 +132,7 @@ if [ "$TUNNEL" = "1" ]; then
     echo "[start] 未找到 cloudflared 命令, 已跳过隧道(TUNNEL=1 但命令不存在)"
   fi
 fi
+PAYHTML_PUBLIC_URL="${PAYHTML_PUBLIC_URL:-${PUBLIC_URL:+$PUBLIC_URL/payhtml}}"
 
 # pay 服务「内部」访问主服务: 同机优先 localhost(最快最稳, 根治「我的记录」因公网隧道抖动而卡顿)
 # 跨机部署可用 PAY_MAIN_URL 显式指定主服务内网/公网地址
@@ -146,25 +176,10 @@ if [ -f "$MP_CONFIG" ]; then
   echo "[start] 小程序 apiBase 已更新(兜底 FALLBACK_API_BASE) -> $MP_API_BASE"
 fi
 
-# ---- 网页支付服务 payhtml(Node 本地服务) ----
-# 内部用 localhost 访问主服务(最快最稳); 房间链接用主服务公网地址(MAIN_PUBLIC_BASE_URL)。
-# 可选: 给 payhtml 自己也开一条隧道, 让购买页也能公网访问(默认随 TUNNEL)。
-PAYHTML_TUNNEL="${PAYHTML_TUNNEL:-$TUNNEL}"
+# ---- 网页支付服务 payhtml(Node 本地服务, 端口 $PAYHTML_PORT) ----
+# 公网暴露由命名隧道统一负责: 子域名 $CF_PAYHTML_HOST -> localhost:$PAYHTML_PORT(见 config.yml)。
+# 不再单独开 quick 隧道(易与主线隧道互相断连)。PAYHTML_PUBLIC_URL 已在上方隧道块赋值。
 CFD_PAYHTML_PID=""
-PAYHTML_PUBLIC_URL=""
-if [ "$PAYHTML_TUNNEL" = "1" ] && command -v cloudflared >/dev/null 2>&1; then
-  echo "[start] 启动 cloudflared 隧道 -> http://localhost:$PAYHTML_PORT (payhtml 网页)"
-  rm -f "$ROOT/.cfd_payhtml.log"
-  cloudflared tunnel --url "http://localhost:$PAYHTML_PORT" --logfile "$ROOT/.cfd_payhtml.log" >/tmp/cfd_payhtml.out 2>&1 &
-  CFD_PAYHTML_PID=$!
-  for _i in $(seq 1 30); do
-    PAYHTML_PUBLIC_URL="$(grep -hoE 'https://[a-zA-Z0-9.-]+\.trycloudflare\.com' "$ROOT/.cfd_payhtml.log" /tmp/cfd_payhtml.out 2>/dev/null | head -1)"
-    [ -n "$PAYHTML_PUBLIC_URL" ] && break
-    sleep 1
-  done
-  [ -n "$PAYHTML_PUBLIC_URL" ] && echo "[start] payhtml 隧道公网地址: $PAYHTML_PUBLIC_URL" \
-    || echo "[start] 警告: 未获取到 payhtml 隧道地址"
-fi
 
 echo "[start] 网页支付服务 payhtml: 内部 MAIN_BASE_URL=http://localhost:$MAIN_PORT  对外 MAIN_PUBLIC_BASE_URL=${MAIN_PUBLIC_BASE_URL:-$BASE_URL}  PORT=$PAYHTML_PORT"
 cd "$PAYHTML_DIR"
@@ -182,6 +197,7 @@ if [ -n "$PUBLIC_URL" ]; then
   echo "[start] 部署 payhtml(Cloudflare Workers)时, 用以下公网地址设置变量, 「你的专属链接」即为公网可达:"
   echo "        cd payhtml && wrangler vars set MAIN_BASE_URL '$PUBLIC_URL' && \\"
   echo "        wrangler vars set MAIN_PUBLIC_BASE_URL '$PUBLIC_URL' && wrangler vars set MAIN_PROVISION_TOKEN '$PROVISION_TOKEN'"
+  [ -n "$PAYHTML_PUBLIC_URL" ] && echo "[start] payhtml 网页已通过命名隧道暴露: $PAYHTML_PUBLIC_URL"
 else
   echo "[start] 部署 payhtml(Cloudflare Workers)时: MAIN_BASE_URL / MAIN_PUBLIC_BASE_URL 填主服务固定公网域名, MAIN_PROVISION_TOKEN 同上。"
 fi
